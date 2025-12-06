@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Mail</title>
+    <!-- Import Space Grotesk (English) and Cairo (Arabic) Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Space Grotesk', 'Cairo', 'sans-serif'],
+            },
+            colors: {
+              midnight: '#05050A',
+              space: '#0F1020',
+              surface: '#1A1B2E',
+              'glass': 'rgba(255, 255, 255, 0.03)',
+              'glass-border': 'rgba(255, 255, 255, 0.08)',
+              'glass-hover': 'rgba(255, 255, 255, 0.08)',
+              primary: {
+                500: '#D946EF', // Fuchsia
+                600: '#C026D3',
+              },
+              accent: {
+                cyan: '#06b6d4',
+                purple: '#8b5cf6',
+              }
+            },
+            backgroundImage: {
+              'aurora': 'radial-gradient(circle at 0% 0%, rgba(88, 28, 135, 0.15) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.1) 0%, transparent 50%)',
+              'brand-gradient': 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
+              'glass-gradient': 'linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.0) 100%)'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Global sleek scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        transition: background 0.2s ease;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      ::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+
+      /* Firefox support */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+      }
+      
+      /* Ensure utility class matches global style */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "d3": "https://aistudiocdn.com/d3@^7.9.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?external=react,react-dom"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-midnight text-slate-200 overflow-hidden selection:bg-fuchsia-500/30">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Save, Sparkles, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, LayoutTemplate, Loader2, Tag, FileText } from 'lucide-react';
+import { Button } from '../components/common/Button';
+import { RichEditor } from '../components/common/RichEditor';
+import { useAppContext } from '../contexts/AppContext';
+import { useToast } from '../components/common/Toast';
+import { generateEmailDraft, improveDraft } from '../services/geminiService';
+import { EmailTemplate } from '../types';
+
+export const TemplateEditorPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { addTemplate, updateTemplate, currentAccount } = useAppContext();
+  const { showToast } = useToast();
+
+  const editingTemplate = location.state?.template as EmailTemplate | undefined;
+
+  // Form State
+  const [name, setName] = useState(editingTemplate?.name || '');
+  const [category, setCategory] = useState(editingTemplate?.category || '');
+  const [subject, setSubject] = useState(editingTemplate?.subject || '');
+  const [body, setBody] = useState(editingTemplate?.body || '');
+
+  // AI Assistant State
+  const [showAi, setShowAi] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const handleSave = () => {
+    if(!name || !subject || !body) {
+        showToast("Please fill in Name, Subject and Body", "error");
+        return;
+    }
+
+    if (editingTemplate) {
+        updateTemplate(editingTemplate.id, { name, subject, body, category });
+        showToast("Template updated successfully", "success");
+    } else {
+        addTemplate({ name, subject, body, category: category || 'General' });
+        showToast("New template created", "success");
+    }
+    navigate('/templates');
+  };
+
+  // AI Functions (Reused from ComposePage for consistency)
+  const handleGenerateDraft = async () => {
+      if (!aiPrompt) return;
+      setIsAiLoading(true);
+      try {
+          const draft = await generateEmailDraft(aiPrompt, currentAccount.name);
+          if (draft) setBody(draft.replace(/\n/g, '<br>'));
+      } catch (e) {
+          showToast("Failed to generate content", "error");
+      } finally {
+          setIsAiLoading(false);
+      }
+  };
+
+  const handleImproveText = async (instruction: string) => {
+      if (!body) return;
+      setIsAiLoading(true);
+      try {
+          const improved = await improveDraft(body, instruction);
+          if (improved) setBody(improved.replace(/\n/g, '<br>'));
+      } catch (e) {
+          showToast("Failed to improve text", "error");
+      } finally {
+          setIsAiLoading(false);
+      }
+  };
+
+  const ToolCard = ({ icon: Icon, label, color, onClick }: any) => (
+      <button 
+        onClick={onClick}
+        className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 hover:scale-105 transition-all group"
+      >
+          <div className={`p-2 rounded-full bg-black/20 ${color} group-hover:scale-110 transition-transform`}>
+              <Icon className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-medium text-slate-300">{label}</span>
+      </button>
+  );
+
+  return (
+    <div className="flex h-full overflow-hidden relative">
+        {/* Main Editor Area */}
+        <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto custom-scrollbar">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 shrink-0">
+                <button onClick={() => navigate('/templates')} className="text-slate-400 hover:text-white flex items-center gap-2 transition-colors">
+                    <ArrowLeft className="w-5 h-5" /> Back
+                </button>
+                <div className="flex items-center gap-4">
+                    <h1 className="text-xl font-bold text-white flex items-center gap-2 hidden md:flex">
+                        <LayoutTemplate className="w-5 h-5 text-fuchsia-500" />
+                        {editingTemplate ? 'Edit Template' : 'New Template'}
+                    </h1>
+                    
+                    <button 
+                        onClick={() => setShowAi(!showAi)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all duration-300 ${
+                            showAi 
+                            ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.4)]' 
+                            : 'bg-glass border-glass-border text-slate-300 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        <Sparkles className={`w-4 h-4 ${showAi ? 'animate-spin-slow' : ''}`} />
+                        {showAi ? 'Close Companion' : 'AI Companion'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-glass border border-glass-border rounded-[2rem] flex-1 flex flex-col backdrop-blur-xl shadow-2xl relative overflow-hidden min-h-[500px]">
+                
+                {/* Form Fields Section */}
+                <div className="p-8 pb-0 space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="relative group">
+                             <span className="absolute left-4 top-3.5 text-xs font-bold text-slate-500 uppercase tracking-widest pointer-events-none group-focus-within:text-fuchsia-500 transition-colors flex items-center gap-2">
+                                <FileText className="w-3 h-3" /> Name
+                             </span>
+                             <input 
+                                value={name} 
+                                onChange={e => setName(e.target.value)} 
+                                className="w-full bg-black/20 border border-white/5 rounded-xl py-3 pl-20 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 transition-all"
+                                placeholder="e.g. Monthly Report" 
+                            />
+                        </div>
+                        <div className="relative group">
+                             <span className="absolute left-4 top-3.5 text-xs font-bold text-slate-500 uppercase tracking-widest pointer-events-none group-focus-within:text-fuchsia-500 transition-colors flex items-center gap-2">
+                                <Tag className="w-3 h-3" /> Category
+                             </span>
+                             <input 
+                                value={category} 
+                                onChange={e => setCategory(e.target.value)} 
+                                className="w-full bg-black/20 border border-white/5 rounded-xl py-3 pl-28 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 transition-all"
+                                placeholder="e.g. Work, HR" 
+                            />
+                        </div>
+                    </div>
+
+                    <div className="relative group">
+                         <span className="absolute left-4 top-3.5 text-xs font-bold text-slate-500 uppercase tracking-widest pointer-events-none group-focus-within:text-fuchsia-500 transition-colors">Subject</span>
+                         <input 
+                            value={subject} 
+                            onChange={e => setSubject(e.target.value)} 
+                            className="w-full bg-black/20 border border-white/5 rounded-xl py-3 pl-24 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 transition-all font-medium"
+                            placeholder="What is the subject line?" 
+                        />
+                    </div>
+                </div>
+
+                {/* Editor Section */}
+                <div className="flex-1 flex flex-col min-h-0 relative p-8 pt-6">
+                    <RichEditor 
+                        value={body} 
+                        onChange={setBody} 
+                        className="flex-1 min-h-[300px] border-none bg-transparent shadow-none !ring-0 !p-0" 
+                        placeholder="Start designing your template content..."
+                    />
+                    
+                    {isAiLoading && (
+                        <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-b-[2rem]">
+                             <div className="flex items-center gap-3 bg-[#1A1B2E] border border-fuchsia-500/30 px-6 py-3 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-300">
+                                <Loader2 className="w-5 h-5 text-fuchsia-500 animate-spin" />
+                                <span className="font-bold text-white tracking-wide">Gemini is writing...</span>
+                             </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Toolbar */}
+                <div className="p-4 bg-[#0F1020]/50 border-t border-white/5 backdrop-blur-md flex items-center justify-between">
+                     <div className="flex items-center gap-2 text-xs text-slate-500">
+                        {/* Optional status text or helper */}
+                        <span className="hidden sm:inline">Pro Tip: Use placeholders like [Name] for dynamic content.</span>
+                     </div>
+
+                     <button 
+                        onClick={handleSave} 
+                        className="group relative px-8 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(192,38,211,0.3)] hover:shadow-[0_0_30px_rgba(192,38,211,0.5)] transition-all active:scale-95 flex items-center gap-2 overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-md"></div>
+                        <span className="relative z-10">Save Template</span>
+                        <Save className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        {/* AI Sidebar */}
+        <div className={`w-[400px] bg-[#0F1020]/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-500 absolute right-0 top-0 bottom-0 z-40 ${showAi ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/20">
+                <div>
+                    <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-fuchsia-500" />
+                    Gemini Companion
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">Powered by Gemini 1.5 Pro</p>
+                </div>
+                <button onClick={() => setShowAi(false)} className="text-slate-500 hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+                {/* Generation */}
+                <section>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Bot className="w-4 h-4 text-fuchsia-400" />
+                        <label className="text-xs font-bold text-slate-300 uppercase tracking-widest">Draft Content</label>
+                    </div>
+                    
+                    <div className="relative group">
+                        <textarea 
+                            className="w-full h-32 bg-black/30 border border-white/10 rounded-2xl p-4 text-sm text-white placeholder:text-slate-500 outline-none focus:border-fuchsia-500/50 resize-none transition-colors"
+                            placeholder="What is this template for? e.g. 'A formal meeting agenda structure...'"
+                            value={aiPrompt}
+                            onChange={e => setAiPrompt(e.target.value)}
+                        />
+                        <button 
+                            onClick={handleGenerateDraft}
+                            disabled={!aiPrompt || isAiLoading}
+                            className="absolute bottom-3 right-3 p-2 bg-fuchsia-500 hover:bg-fuchsia-400 rounded-lg text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </section>
+
+                <div className="h-px bg-white/5 w-full"></div>
+
+                {/* Tools */}
+                <section className={!body ? 'opacity-50 pointer-events-none grayscale' : 'transition-opacity'}>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Wand2 className="w-4 h-4 text-cyan-400" />
+                        <label className="text-xs font-bold text-slate-300 uppercase tracking-widest">Refine</label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <ToolCard 
+                            icon={CheckCircle2} 
+                            label="Fix Grammar" 
+                            color="text-emerald-400" 
+                            onClick={() => handleImproveText("Fix grammar and spelling errors")} 
+                        />
+                        <ToolCard 
+                            icon={Scissors} 
+                            label="Shorten" 
+                            color="text-orange-400" 
+                            onClick={() => handleImproveText("Make it more concise")} 
+                        />
+                        <ToolCard 
+                            icon={Feather} 
+                            label="Expand" 
+                            color="text-blue-400" 
+                            onClick={() => handleImproveText("Expand with more details")} 
+                        />
+                        <ToolCard 
+                            icon={Briefcase} 
+                            label="Formalize" 
+                            color="text-purple-400" 
+                            onClick={() => handleImproveText("Make it professional and formal")} 
+                        />
+                    </div>
+                </section>
+
+                <div className="h-px bg-white/5 w-full"></div>
+
+                {/* Tone */}
+                <section className={!body ? 'opacity-50 pointer-events-none grayscale' : 'transition-opacity'}>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Smile className="w-4 h-4 text-yellow-400" />
+                        <label className="text-xs font-bold text-slate-300 uppercase tracking-widest">Adjust Tone</label>
+                    </div>
+                    
+                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x">
+                        {[
+                            { label: 'Friendly', icon: Smile, color: 'text-yellow-400', prompt: 'Make it friendly and warm' },
+                            { label: 'Urgent', icon: Zap, color: 'text-red-400', prompt: 'Make it urgent and direct' },
+                            { label: 'Confident', icon: CheckCircle2, color: 'text-blue-400', prompt: 'Make it confident and assertive' },
+                            { label: 'Casual', icon: Feather, color: 'text-green-400', prompt: 'Make it casual and relaxed' },
+                        ].map((tone) => (
+                            <button 
+                                key={tone.label}
+                                onClick={() => handleImproveText(tone.prompt)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 whitespace-nowrap snap-start transition-colors"
+                            >
+                                <tone.icon className={`w-3.5 h-3.5 ${tone.color}`} />
+                                <span className="text-xs text-slate-300">{tone.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+  );
+};

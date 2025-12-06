@@ -1,0 +1,7 @@
+{
+  "name": "AI Mail",
+  "description": "Next-generation email client powered by Gemini models for smart sorting, writing assistance, automation, and media generation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
