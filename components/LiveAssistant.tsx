@@ -89,7 +89,7 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
         };
 
         const sessionPromise = liveClient.connect({
-          model: 'gemini-2.0-flash-native-audio-preview-09-2025',
+          model: 'gemini-3-flash-preview-native-audio-preview-09-2025',
           callbacks: {
             onopen: () => {
               if (cleanup) return;

@@ -10,29 +10,7 @@ const MOCK_ACCOUNTS: UserAccount[] = [
   { id: '3', name: 'Aireon Admin', email: 'admin@aireon.ai', avatar: 'A', provider: 'microsoft', color: 'from-emerald-400 to-teal-500' }
 ];
 
-const MOCK_TEMPLATES: EmailTemplate[] = [
-  {
-    id: '1',
-    name: 'Weekly Report',
-    subject: 'Weekly Status Update - [Date]',
-    body: 'Hi Team,\n\nHere is the status update for this week:\n\n<strong>Highlights:</strong>\n<ul><li>Task 1 completed</li></ul>\n\n<strong>Blockers:</strong>\nNone.\n\nBest,\nJohn',
-    category: 'Work'
-  },
-  {
-    id: '2',
-    name: 'Meeting Request',
-    subject: 'Meeting Request: [Topic]',
-    body: 'Hi [Name],\n\nI would like to schedule a brief meeting to discuss [Topic].\n\nAre you available on [Date/Time]?\n\nThanks,',
-    category: 'Scheduling'
-  },
-  {
-    id: '3',
-    name: 'Sick Leave',
-    subject: 'Sick Leave - [Name]',
-    body: 'Hi Manager,\n\nI am not feeling well today and will be taking a sick day.\n\nI will be available via email for urgent matters.\n\nThanks,',
-    category: 'HR'
-  }
-];
+const MOCK_TEMPLATES: EmailTemplate[] = [];
 
 const MOCK_EMAILS: Email[] = [
   {
@@ -77,19 +55,6 @@ const MOCK_EMAILS: Email[] = [
     priorityScore: 80,
     tags: ['Finance'],
     folder: 'inbox'
-  },
-  {
-    id: '4',
-    sender: 'Me',
-    senderEmail: 'me@aireon.ai',
-    subject: 'Re: Project Update: Genisys',
-    preview: 'Thanks Sarah, 10 AM works for me.',
-    body: 'Thanks Sarah,\n\n10 AM works for me. I will bring the updated metrics.\n\nBest,\nJohn',
-    timestamp: '11:00 AM',
-    read: true,
-    isSmart: false,
-    priorityScore: 0,
-    folder: 'sent'
   },
   {
     id: '5',

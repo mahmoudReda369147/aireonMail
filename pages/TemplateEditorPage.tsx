@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save, Sparkles, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, LayoutTemplate, Loader2, Tag, FileText } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -7,12 +7,15 @@ import { useAppContext } from '../contexts/AppContext';
 import { useToast } from '../components/common/Toast';
 import { generateEmailDraft, improveDraft } from '../services/geminiService';
 import { EmailTemplate } from '../types';
+import { useCreateTemplate, useUpdateTemplate } from '../apis/hooks';
 
 export const TemplateEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { addTemplate, updateTemplate, currentAccount } = useAppContext();
+  const { currentAccount } = useAppContext();
   const { showToast } = useToast();
+  const createTemplateMutation = useCreateTemplate();
+  const updateTemplateMutation = useUpdateTemplate();
 
   const editingTemplate = location.state?.template as EmailTemplate | undefined;
 
@@ -27,18 +30,44 @@ export const TemplateEditorPage: React.FC = () => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if(!name || !subject || !body) {
         showToast("Please fill in Name, Subject and Body", "error");
         return;
     }
 
     if (editingTemplate) {
-        updateTemplate(editingTemplate.id, { name, subject, body, category });
-        showToast("Template updated successfully", "success");
+        try {
+            await updateTemplateMutation.mutateAsync({
+                id: editingTemplate.id,
+                data: {
+                    name,
+                    subject,
+                    body,
+                    categure: category || 'General',
+                    isFavorets: false // Default to false since we don't have this field in the UI
+                }
+            });
+            showToast("Template updated successfully", "success");
+        } catch (error) {
+            console.error('Failed to update template:', error);
+            showToast(error instanceof Error ? error.message : "Failed to update template", "error");
+            return;
+        }
     } else {
-        addTemplate({ name, subject, body, category: category || 'General' });
-        showToast("New template created", "success");
+        try {
+            await createTemplateMutation.mutateAsync({
+                name,
+                subject,
+                body,
+                categure: category || 'General'
+            });
+            showToast("New template created", "success");
+        } catch (error) {
+            console.error('Failed to create template:', error);
+            showToast(error instanceof Error ? error.message : "Failed to create template", "error");
+            return;
+        }
     }
     navigate('/templates');
   };

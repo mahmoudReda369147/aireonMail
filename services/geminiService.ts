@@ -2,6 +2,7 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Email, Task } from "../types";
 
 // Helper to get a fresh client instance to ensure the latest API key is used
+console.log("process.env.API_KEY",process.env.API_KEY)
 const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- Retry Logic ---
@@ -52,7 +53,7 @@ async function withRetry<T>(operation: () => Promise<T>, retries = 3, backoff = 
 
 export const getSmartInboxAnalysis = async (emailBody: string, subject: string) => {
   // Use 2.5 Flash for reliable throughput on batch tasks
-  const model = "gemini-2.0-flash"; 
+  const model = "gemini-3-flash-preview"; 
   
   try {
     const ai = getAiClient();
@@ -83,7 +84,7 @@ export const getSmartInboxAnalysis = async (emailBody: string, subject: string) 
 };
 
 export const analyzeActionItems = async (emailBody: string, currentSubject: string) => {
-  const model = "gemini-2.0-flash"; 
+  const model = "gemini-3-flash-preview"; 
   const ai = getAiClient();
 
   try {
@@ -163,7 +164,7 @@ export const generateReply = async (email: Email, instruction: string) => {
 };
 
 export const improveDraft = async (draft: string, instruction: string) => {
-  const model = "gemini-2.0-flash"; // Fast iteration
+  const model = "gemini-3-flash-preview"; // Fast iteration
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
@@ -173,7 +174,7 @@ export const improveDraft = async (draft: string, instruction: string) => {
 };
 
 export const generateEmailDraft = async (prompt: string, senderName: string) => {
-  const model = "gemini-2.0-flash";
+  const model = "gemini-3-flash-preview";
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
@@ -187,7 +188,7 @@ export const generateEmailDraft = async (prompt: string, senderName: string) => 
 // --- Audio ---
 
 export const transcribeAudio = async (base64Audio: string) => {
-  const model = "gemini-2.0-flash";
+  const model = "gemini-3-flash-preview";
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
@@ -235,7 +236,7 @@ export const generateImage = async (prompt: string, size: "1K" | "2K" | "4K" = "
 
 export const editImage = async (base64Image: string, prompt: string) => {
   // Use Gemini 2.5 Flash Image for editing/analysis
-  const model = "gemini-2.0-flash-image";
+  const model = "gemini-3-flash-preview-image";
   const ai = getAiClient();
   
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
@@ -259,8 +260,8 @@ export const editImage = async (base64Image: string, prompt: string) => {
 };
 
 export const generateNanoLogo = async () => {
-  // Specific function for branding generation using Nano Banana (gemini-2.0-flash-image)
-  const model = "gemini-2.0-flash-image";
+  // Specific function for branding generation using Nano Banana (gemini-3-flash-preview-image)
+  const model = "gemini-3-flash-preview-image";
   // Updated prompt: Explicitly asking for Pure Black background to facilitate screen blending.
   const prompt = "A minimalist, abstract logo for 'Aireon' featuring a stylized triangular 'A' shape. The design uses neon Magenta (#D946EF) and Cyan (#06b6d4) glowing lines. The background must be **PURE BLACK** (#000000) with absolutely no gradient, stars, or texture. The logo should be centered, vector-style, sharp, and high contrast.";
 

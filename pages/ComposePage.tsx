@@ -8,18 +8,26 @@ import { useAppContext } from '../contexts/AppContext';
 import { useToast } from '../components/common/Toast';
 import { generateEmailDraft, improveDraft } from '../services/geminiService';
 import { EmailTemplate } from '../types';
+import { useGmailSend } from '../apis/hooks';
 
 export const ComposePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, currentAccount, templates } = useAppContext();
   const { showToast } = useToast();
+  const gmailSend = useGmailSend();
   
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [isScheduling, setIsScheduling] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
+
+  // Email validation function
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   // Templates State
   const [showTemplates, setShowTemplates] = useState(false);
@@ -38,19 +46,41 @@ export const ComposePage: React.FC = () => {
     }
   }, [location]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!to || !subject) {
         showToast("Please fill in recipient and subject", "error");
         return;
     }
-    showToast("Message sent!", "success");
-    navigate('/inbox');
+    if (!isValidEmail(to)) {
+        showToast("Please enter a valid email address", "error");
+        return;
+    }
+
+    try {
+        await gmailSend.mutateAsync({
+            to: to.trim(),
+            subject: subject.trim(),
+            body: body,
+            cc: undefined, // Optional - can be added later
+            bcc: undefined // Optional - can be added later
+        });
+
+        showToast("Message sent successfully!", "success");
+        navigate('/inbox');
+    } catch (error) {
+        console.error('Failed to send email:', error);
+        showToast(error instanceof Error ? error.message : "Failed to send message", "error");
+    }
   };
 
   const handleSchedule = () => {
     if (!scheduleDate) return;
     if (!to || !subject) {
         showToast("Please fill in recipient and subject", "error");
+        return;
+    }
+    if (!isValidEmail(to)) {
+        showToast("Please enter a valid email address", "error");
         return;
     }
     showToast(`Message scheduled for ${new Date(scheduleDate).toLocaleString()}`, "success");
