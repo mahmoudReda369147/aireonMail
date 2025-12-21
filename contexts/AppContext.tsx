@@ -138,7 +138,10 @@ interface AppContextType {
   // Auth
   isAuthenticated: boolean;
   isLoggingIn: boolean;
+  isCheckingAuth: boolean;
+  userData: { token: string; email: string; name: string } | null;
   login: () => Promise<void>;
+  loginWithToken: (token: string, email: string, name: string) => void;
   logout: () => void;
 
   emails: Email[];
@@ -196,6 +199,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [userData, setUserData] = useState<{ token: string; email: string; name: string } | null>(null);
 
   // App Data State
   const [emails, setEmails] = useState<Email[]>(MOCK_EMAILS);
@@ -246,6 +251,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConfirmState(prev => ({ ...prev, isOpen: false }));
   };
 
+  // Check for existing auth on mount and URL parameters
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Check URL query parameters for OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const status = urlParams.get('status');
+      const email = urlParams.get('email');
+      const name = urlParams.get('name');
+
+      if (token && status === 'success' && email && name) {
+        // Save auth data to localStorage
+        const authData = { token, email, name };
+        localStorage.setItem('aireon_auth', JSON.stringify(authData));
+
+        // Set auth state
+        setUserData(authData);
+        setIsAuthenticated(true);
+
+        // Clean up URL and redirect to inbox
+        window.history.replaceState({}, '', '/inbox');
+      } else {
+        // Check localStorage for existing auth
+        const savedAuth = localStorage.getItem('aireon_auth');
+        if (savedAuth) {
+          try {
+            const authData = JSON.parse(savedAuth);
+            setUserData(authData);
+            setIsAuthenticated(true);
+          } catch (error) {
+            console.error('Failed to parse saved auth data:', error);
+            localStorage.removeItem('aireon_auth');
+          }
+        }
+      }
+
+      // Auth check is complete
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, []);
+
   const login = async () => {
     setIsLoggingIn(true);
     // Simulate API delay
@@ -254,8 +302,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggingIn(false);
   };
 
+  const loginWithToken = (token: string, email: string, name: string) => {
+    const authData = { token, email, name };
+    localStorage.setItem('aireon_auth', JSON.stringify(authData));
+    setUserData(authData);
+    setIsAuthenticated(true);
+  };
+
   const logout = () => {
     setIsAuthenticated(false);
+    setUserData(null);
+    localStorage.removeItem('aireon_auth');
   };
 
   // Derived filtered emails
@@ -393,10 +450,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ 
+    <AppContext.Provider value={{
       isAuthenticated,
       isLoggingIn,
+      isCheckingAuth,
+      userData,
       login,
+      loginWithToken,
       logout,
       emails, 
       filteredEmails,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { ToastProvider } from './components/common/Toast';
 import { ConfirmationModal } from './components/common/ConfirmationModal';
@@ -21,16 +22,38 @@ import { LoginPage } from './pages/LoginPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { TemplateEditorPage } from './pages/TemplateEditorPage';
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 // Wrapper to handle auth logic cleanly
 const AppRoutes = () => {
-  const { isAuthenticated } = useAppContext();
+  const { isAuthenticated, isCheckingAuth } = useAppContext();
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="h-screen w-full bg-midnight text-slate-200 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin"></div>
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
       {/* Public Route */}
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to="/inbox" replace /> : <LoginPage />} 
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/inbox" replace /> : <LoginPage />}
       />
 
       {/* Protected Routes - Wrapped in Layout */}
@@ -39,7 +62,7 @@ const AppRoutes = () => {
           <Layout>
             <Routes>
               <Route path="/" element={<Navigate to="/inbox" replace />} />
-              
+
               <Route path="/inbox/:id" element={<InboxPage />} />
               <Route path="/inbox" element={<InboxPage />} />
 
@@ -64,10 +87,10 @@ const AppRoutes = () => {
               <Route path="/automation" element={<AutomationPage />} />
               <Route path="/thread-automation/:id" element={<ConversationAutomationPage />} />
               <Route path="/thread-automation" element={<ConversationAutomationPage />} />
-              
+
               <Route path="/studio" element={<VeoStudioPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
-              
+
               {/* Fallback for authenticated users */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
@@ -82,14 +105,16 @@ const AppRoutes = () => {
 
 const App = () => {
   return (
-    <AppProvider>
-      <ToastProvider>
-        <HashRouter>
-          <AppRoutes />
-          <ConfirmationModal />
-        </HashRouter>
-      </ToastProvider>
-    </AppProvider>
+    <QueryClientProvider client={queryClient}>
+      <AppProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <ConfirmationModal />
+          </BrowserRouter>
+        </ToastProvider>
+      </AppProvider>
+    </QueryClientProvider>
   );
 };
 

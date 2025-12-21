@@ -3,18 +3,39 @@ import { useParams } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { EmailListItem } from '../components/EmailListItem';
 import { EmailDetail } from '../components/EmailDetail';
-import { Sparkles, Inbox, Search } from 'lucide-react';
+import { Sparkles, Inbox, Search, Loader2 } from 'lucide-react';
+import { useGmailEmails } from '../apis/hooks';
+import { GmailEmail } from '../apis/services';
+import { mapGmailEmailToEmail } from '../apis/services';
 
 export const InboxPage: React.FC = () => {
-  const { filteredEmails, t, isSearching } = useAppContext();
+  const { t } = useAppContext();
   const { id } = useParams<{id: string}>();
   
-  // If searching, show all matches. If not, only show inbox.
-  const displayEmails = isSearching 
-    ? filteredEmails 
-    : filteredEmails.filter(e => e.folder === 'inbox');
+  // Use Gmail emails hook with infinite scroll
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } = useGmailEmails();
 
-  const selectedEmail = displayEmails.find(e => e.id === id);
+  // Flatten all pages to get all emails and map to app format
+  const emails = data?.pages.flatMap(page => page.data.map(mapGmailEmailToEmail)) || [];
+  
+  const selectedEmail = emails.find(e => e.id === id);
+
+  // Handle scroll for infinite loading
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    if (element.scrollHeight - element.scrollTop <= element.clientHeight + 100) {
+      if (hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    }
+  };
 
   return (
     <>
@@ -22,24 +43,39 @@ export const InboxPage: React.FC = () => {
       <div className={`flex flex-col w-full md:w-[360px] border-r rtl:border-r-0 rtl:border-l border-glass-border bg-black/20 z-0 transition-transform ${id ? 'hidden md:flex' : 'flex'}`}>
          <div className="p-5 flex justify-between items-center border-b border-glass-border/50">
              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                 {isSearching ? <Search className="w-5 h-5 text-fuchsia-500" /> : null}
-                 {isSearching ? 'Search Results' : t('inbox.title')}
+                 <Inbox className="w-5 h-5 text-cyan-500" />
+                 {t('inbox.title')}
              </h2>
-             {!isSearching && (
-                <button className="text-xs font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> {t('inbox.cleanup')}
-                </button>
-             )}
+             <button className="text-xs font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                 <Sparkles className="w-3 h-3" /> {t('inbox.cleanup')}
+             </button>
          </div>
-         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-             {displayEmails.length === 0 ? (
+         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar" onScroll={handleScroll}>
+             {isLoading ? (
                  <div className="text-center mt-10 text-slate-500">
-                     <p>{isSearching ? 'No emails found matching filters.' : 'Inbox is empty.'}</p>
+                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                     <p>Loading emails...</p>
+                 </div>
+             ) : error ? (
+                 <div className="text-center mt-10 text-red-500">
+                     <p>Error loading emails: {(error as Error).message}</p>
+                 </div>
+             ) : emails.length === 0 ? (
+                 <div className="text-center mt-10 text-slate-500">
+                     <p>Inbox is empty.</p>
                  </div>
              ) : (
-                 displayEmails.map(email => (
-                    <EmailListItem key={email.id} email={email} basePath="/inbox" />
-                 ))
+                 <>
+                     {emails.map(email => (
+                        <EmailListItem key={email.id} email={email} basePath="/inbox" />
+                     ))}
+                     {isFetchingNextPage && (
+                        <div className="text-center mt-4 text-slate-500">
+                            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                            <p className="text-xs mt-1">Loading more...</p>
+                        </div>
+                     )}
+                 </>
              )}
          </div>
       </div>

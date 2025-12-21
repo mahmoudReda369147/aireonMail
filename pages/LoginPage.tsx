@@ -7,9 +7,8 @@ export const LoginPage: React.FC = () => {
   const { login, isLoggingIn } = useAppContext();
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    await login();
-    navigate('/inbox');
+   const handleLogin = () => {
+    window.location.href = 'http://localhost:3000/api/auth/login';
   };
 
   return (
