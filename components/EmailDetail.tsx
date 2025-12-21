@@ -15,13 +15,16 @@ interface Props {
 export const EmailDetail: React.FC<Props> = ({ email }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { updateEmail, deleteEmail, requestConfirm } = useAppContext();
+  const { deleteEmail, requestConfirm } = useAppContext();
   const [replyHtml, setReplyHtml] = useState(''); // Changed to replyHtml
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState('');
   const [detectedMeeting, setDetectedMeeting] = useState<any>(null);
+
+  // Local tasks state for Gmail emails (not in AppContext)
+  const [localTasks, setLocalTasks] = useState<Task[]>(email.tasks || []);
 
   // AI Assistant State
   const [showAi, setShowAi] = useState(false);
@@ -33,6 +36,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     setDetectedMeeting(null);
     setShowAi(false);
     setAiPrompt('');
+    setLocalTasks(email.tasks || []);
   }, [email.id]);
 
   const handleDelete = () => {
@@ -83,16 +87,16 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     setDetectedMeeting(null);
     try {
         const result = await analyzeActionItems(email.body, email.subject);
-        
+
         // Handle Tasks
         if (result.tasks && result.tasks.length > 0) {
-            const newTasks: Task[] = result.tasks.map((t: any) => ({ 
-                ...t, 
-                id: Math.random().toString(36).substr(2, 9), 
-                completed: false 
+            const newTasks: Task[] = result.tasks.map((t: any) => ({
+                ...t,
+                id: Math.random().toString(36).substr(2, 9),
+                completed: false
             }));
-            const updatedTasks = [...(email.tasks || []), ...newTasks];
-            updateEmail(email.id, { tasks: updatedTasks });
+            const updatedTasks = [...localTasks, ...newTasks];
+            setLocalTasks(updatedTasks);
         }
 
         // Handle Meeting
@@ -101,13 +105,14 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
             showToast("Meeting detected!", "success");
         }
 
-        if (result.tasks.length > 0 || result.meeting) {
-            showToast(`Analysis complete: ${result.tasks.length} tasks, ${result.meeting ? '1 meeting' : '0 meetings'}.`, "success");
+        if ((result.tasks?.length || 0) > 0 || result.meeting) {
+            showToast(`Analysis complete: ${result.tasks?.length || 0} tasks, ${result.meeting ? '1 meeting' : '0 meetings'}.`, "success");
         } else {
              showToast("No new actions detected.", "info");
         }
 
     } catch (e) {
+        console.error("Error in handleAnalyzeActions:", e);
         showToast("Analysis failed", "error");
     } finally {
         setIsAnalyzing(false);
@@ -115,8 +120,8 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   };
 
   const toggleTask = (taskId: string) => {
-      const updatedTasks = email.tasks?.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
-      updateEmail(email.id, { tasks: updatedTasks });
+      const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
+      setLocalTasks(updatedTasks);
   };
 
   const handleEditAttachment = async () => {
@@ -246,17 +251,17 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                     </div>
                 )}
 
-                {email.tasks && email.tasks.length > 0 && (
+                {localTasks && localTasks.length > 0 && (
                     <div className="bg-gradient-to-r from-emerald-900/10 to-teal-900/10 p-6 rounded-2xl border border-emerald-500/20 relative overflow-hidden animate-in fade-in slide-in-from-top-4">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <CheckSquare className="w-4 h-4 text-emerald-400" />
                                 <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Action Items</span>
                             </div>
-                            <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">{email.tasks.filter(t => !t.completed).length} pending</span>
+                            <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">{localTasks.filter(t => !t.completed).length} pending</span>
                         </div>
                         <div className="space-y-3">
-                            {email.tasks.map(task => (
+                            {localTasks.map(task => (
                                 <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${task.completed ? 'bg-black/10 border-transparent opacity-50' : 'bg-surface/60 border-glass-border hover:bg-surface'}`}>
                                     <div 
                                         onClick={() => toggleTask(task.id)}

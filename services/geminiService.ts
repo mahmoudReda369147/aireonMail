@@ -73,7 +73,7 @@ export const getSmartInboxAnalysis = async (emailBody: string, subject: string) 
 };
 
 export const analyzeActionItems = async (emailBody: string, currentSubject: string) => {
-  const model = "gemini-3-flash-preview"; 
+  const model = "gemini-3-flash-preview";
   const ai = getAiClient();
 
   try {
@@ -112,8 +112,12 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
         }
       }
     }));
-    
-    const result = JSON.parse(response.text || "{}");
+
+    // Extract text from the response - prioritize parts array over response.text
+    let jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
+
+    const result = JSON.parse(jsonText || "{}");
+
     return {
         tasks: result.tasks || [],
         meeting: result.meeting || null
