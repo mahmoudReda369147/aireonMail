@@ -289,6 +289,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
             </div>
 
             <div className="prose prose-invert max-w-none text-slate-300 mb-10 whitespace-pre-line leading-relaxed font-light text-lg">
+                {console.log("email",email)}
                 {email.body}
             </div>
 

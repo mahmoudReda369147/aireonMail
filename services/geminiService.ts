@@ -1,8 +1,8 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Email, Task } from "../types";
 
 // Helper to get a fresh client instance to ensure the latest API key is used
-console.log("process.env.API_KEY",process.env.API_KEY)
 const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- Retry Logic ---
@@ -12,39 +12,28 @@ async function withRetry<T>(operation: () => Promise<T>, retries = 3, backoff = 
   try {
     return await operation();
   } catch (error: any) {
-    // Extract error details safely to handle various error structures
+    // Extract error details safely
     const errorCode = error.status || error?.error?.code || error?.code;
     const errorMessage = error.message || error?.error?.message || '';
-    const errorStatus = error.status || error?.error?.status;
-
-    // Check for Rate Limit (429)
-    const isRateLimit = errorCode === 429 || errorMessage.includes('429') || errorMessage.includes('quota');
     
-    // Check for Server Errors (500, 503)
-    const isServerError = errorCode === 500 || errorCode === 503;
+    // Check for Resource Exhausted (429) - specific message for user feedback
+    const isQuotaExceeded = errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('quota') || errorCode === 429;
     
-    // Check for Network/XHR/RPC Errors
-    // Error code 6 in XHR often means connection lost/refused
-    const isNetworkError = 
-        errorMessage.includes('xhr error') || 
-        errorMessage.includes('Rpc failed') || 
-        errorMessage.includes('NetworkError') ||
-        errorMessage.includes('fetch failed') ||
-        errorCode === 6 ||
-        errorStatus === 'UNKNOWN';
+    if (isQuotaExceeded) {
+        console.error("Gemini API Quota Exceeded. Please check your billing/plan at ai.google.dev");
+        // We throw a custom error so the UI can handle it specifically
+        throw new Error("QUOTA_EXHAUSTED");
+    }
 
-    if (retries > 0 && (isRateLimit || isServerError || isNetworkError)) {
-      // Calculate wait time with Jitter to prevent thundering herd
-      const jitter = Math.random() * 500;
-      const waitTime = backoff + jitter;
-      
-      console.warn(`Gemini API Warning (${errorCode || 'Network'}). Retrying in ${Math.round(waitTime)}ms...`, errorMessage);
-      
+    // Check for Server Errors (500, 503) or Network issues
+    const isRetryable = errorCode === 500 || errorCode === 503 || errorMessage.includes('fetch failed') || errorMessage.includes('NetworkError');
+
+    if (retries > 0 && isRetryable) {
+      const waitTime = backoff + Math.random() * 500;
       await delay(waitTime);
       return withRetry(operation, retries - 1, backoff * 2);
     }
     
-    // If we ran out of retries or it's a different error, throw it
     throw error;
   }
 }
@@ -52,7 +41,7 @@ async function withRetry<T>(operation: () => Promise<T>, retries = 3, backoff = 
 // --- Text & Reasoning ---
 
 export const getSmartInboxAnalysis = async (emailBody: string, subject: string) => {
-  // Use 2.5 Flash for reliable throughput on batch tasks
+  // Use Gemini 3 Flash for high-speed analysis
   const model = "gemini-3-flash-preview"; 
   
   try {
@@ -63,7 +52,7 @@ export const getSmartInboxAnalysis = async (emailBody: string, subject: string) 
       Return JSON with:
       - priorityScore (0-100 integer)
       - summary (max 15 words)
-      - tags (array of strings, e.g. "Work", "Urgent", "Finance")`,
+      - tags (array of strings)`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -77,9 +66,9 @@ export const getSmartInboxAnalysis = async (emailBody: string, subject: string) 
       }
     }));
     return JSON.parse(response.text || "{}");
-  } catch (e) {
-    console.error("Smart Analysis Failed", e);
-    return { priorityScore: 50, summary: "Analysis failed", tags: [] };
+  } catch (e: any) {
+    if (e.message === "QUOTA_EXHAUSTED") return { priorityScore: 50, summary: "Quota exceeded", tags: ["System"] };
+    return { priorityScore: 50, summary: "Analysis unavailable", tags: [] };
   }
 };
 
@@ -90,14 +79,7 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
   try {
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model,
-      contents: `Analyze this email content for actionable items.
-      1. Extract specific tasks.
-      2. Detect if there is a meeting request, invitation, or scheduling proposal.
-      
-      Subject: "${currentSubject}"
-      Body: "${emailBody}"
-      
-      Return a JSON object.`,
+      contents: `Extract tasks and meetings from: "${currentSubject}" - "${emailBody}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -108,8 +90,8 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  description: { type: Type.STRING, description: "The task description" },
-                  deadline: { type: Type.STRING, description: "Date or time mentioned, or null if none", nullable: true },
+                  description: { type: Type.STRING },
+                  deadline: { type: Type.STRING, nullable: true },
                   priority: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
                 },
                 required: ["description", "priority"]
@@ -118,15 +100,13 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
             meeting: {
               type: Type.OBJECT,
               properties: {
-                 title: { type: Type.STRING, description: "Suggested title for the calendar event" },
-                 date: { type: Type.STRING, description: "Date of the meeting (YYYY-MM-DD or readable format)" },
-                 time: { type: Type.STRING, description: "Time of the meeting" },
-                 duration: { type: Type.STRING, description: "Duration e.g. '30 mins'" },
-                 participants: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Names of people involved" },
-                 agenda: { type: Type.STRING, description: "Brief agenda or topic" }
+                 title: { type: Type.STRING },
+                 date: { type: Type.STRING },
+                 time: { type: Type.STRING },
+                 duration: { type: Type.STRING },
+                 agenda: { type: Type.STRING }
               },
-              nullable: true,
-              description: "Null if no meeting/scheduling detected"
+              nullable: true
             }
           }
         }
@@ -138,37 +118,29 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
         tasks: result.tasks || [],
         meeting: result.meeting || null
     };
-  } catch (e) {
-    console.error("Action analysis failed", e);
-    return { tasks: [], meeting: null };
+  } catch (e: any) {
+    if (e.message === "QUOTA_EXHAUSTED") throw new Error("Please check your API quota.");
+    throw e;
   }
 };
 
 export const generateReply = async (email: Email, instruction: string) => {
-  const model = "gemini-3-pro-preview"; // Use Pro for high quality writing
+  // Use Gemini 3 Pro for creative writing
+  const model = "gemini-3-flash-preview"; 
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Write a reply to this email.
-    Instruction: ${instruction}
-    
-    IMPORTANT: Return the response as raw HTML suitable for a rich text editor.
-    Use <p> for paragraphs, <br> for line breaks, <strong> for emphasis.
-    Do NOT use Markdown. Do NOT wrap in \`\`\`html code blocks. Just return the raw HTML string.
-    
-    From: ${email.sender}
-    Subject: ${email.subject}
-    Body: ${email.body}`,
+    contents: `Write an HTML reply to: From: ${email.sender}, Subject: ${email.subject}. Instruction: ${instruction}`,
   }));
   return response.text;
 };
 
 export const improveDraft = async (draft: string, instruction: string) => {
-  const model = "gemini-3-flash-preview"; // Fast iteration
+  const model = "gemini-3-flash-preview";
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Improve this email draft based on instruction: "${instruction}".\n\nDraft:\n${draft}`,
+    contents: `Improve this email draft: "${instruction}".\n\nDraft:\n${draft}`,
   }));
   return response.text;
 };
@@ -178,26 +150,7 @@ export const generateEmailDraft = async (prompt: string, senderName: string) => 
   const ai = getAiClient();
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Write an email body based on this request: "${prompt}".
-    Sender: ${senderName}
-    Output only the email body text. Do not include subject line.`,
-  }));
-  return response.text;
-};
-
-// --- Audio ---
-
-export const transcribeAudio = async (base64Audio: string) => {
-  const model = "gemini-3-flash-preview";
-  const ai = getAiClient();
-  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
-    model,
-    contents: {
-      parts: [
-        { inlineData: { mimeType: "audio/wav", data: base64Audio } }, // Assuming wav wrapper or raw if supported
-        { text: "Transcribe this audio accurately." }
-      ]
-    }
+    contents: `Draft an email for: "${prompt}". Sender: ${senderName}`,
   }));
   return response.text;
 };
@@ -205,119 +158,104 @@ export const transcribeAudio = async (base64Audio: string) => {
 // --- Images ---
 
 export const generateImage = async (prompt: string, size: "1K" | "2K" | "4K" = "1K") => {
-  // Use Gemini 3 Pro Image for generation
-  const model = "gemini-3-pro-image-preview";
-  
-  try {
-    const ai = getAiClient();
-    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
-      model,
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        imageConfig: {
-            imageSize: size,
-            aspectRatio: "1:1"
-        }
-      }
-    }));
-    
-    // Extract image from parts
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    return null;
-  } catch (e) {
-    console.error("Image gen failed", e);
-    throw e;
-  }
-};
-
-export const editImage = async (base64Image: string, prompt: string) => {
-  // Use Gemini 2.5 Flash Image for editing/analysis
-  const model = "gemini-3-flash-preview-image";
+  const model = "gemini-3-flash-image-preview";
   const ai = getAiClient();
-  
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: {
-      parts: [
-        { inlineData: { mimeType: "image/png", data: base64Image.replace(/^data:image\/\w+;base64,/, "") } },
-        { text: prompt }
-      ]
+    contents: { parts: [{ text: prompt }] },
+    config: {
+      imageConfig: { imageSize: size, aspectRatio: "1:1" }
     }
   }));
-
-  // Check for image output
+  
   for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
-    }
+    if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
   }
-  // Fallback if it returns text describing the edit instead
   return null;
 };
 
 export const generateNanoLogo = async () => {
-  // Specific function for branding generation using Nano Banana (gemini-3-flash-preview-image)
-  const model = "gemini-3-flash-preview-image";
-  // Updated prompt: Explicitly asking for Pure Black background to facilitate screen blending.
-  const prompt = "A minimalist, abstract logo for 'Aireon' featuring a stylized triangular 'A' shape. The design uses neon Magenta (#D946EF) and Cyan (#06b6d4) glowing lines. The background must be **PURE BLACK** (#000000) with absolutely no gradient, stars, or texture. The logo should be centered, vector-style, sharp, and high contrast.";
-
-  try {
-    const ai = getAiClient();
-    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
-      model,
-      contents: { parts: [{ text: prompt }] },
-    }));
-    
-    // Extract image from parts
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-            return `data:image/png;base64,${part.inlineData.data}`;
-        }
-    }
-    return null;
-  } catch (e) {
-    console.error("Logo gen failed", e);
-    return null;
+  const model = "gemini-2.5-flash-image";
+  const prompt = "Minimalist glowing logo for 'Aireon' AI Mail app, neon colors, pure black background.";
+  const ai = getAiClient();
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model,
+    contents: { parts: [{ text: prompt }] },
+  }));
+  
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
   }
-}
+  return null;
+};
 
-// --- Video (Veo) ---
+// --- Edit Images ---
+
+/**
+ * Edits an image using gemini-2.5-flash-image.
+ * Takes a base64 encoded image or data URL and a text prompt.
+ * Following the Google GenAI guidelines for image editing.
+ */
+export const editImage = async (base64ImageData: string, prompt: string) => {
+  const model = 'gemini-2.5-flash-image';
+  const ai = getAiClient();
+  
+  // Extract base64 data and mime type if it's a data URI
+  let data = base64ImageData;
+  let mimeType = 'image/png';
+  if (base64ImageData.startsWith('data:')) {
+    const matches = base64ImageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (matches) {
+      mimeType = matches[1];
+      data = matches[2];
+    }
+  }
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model,
+    contents: {
+      parts: [
+        {
+          inlineData: {
+            data: data,
+            mimeType: mimeType,
+          },
+        },
+        {
+          text: prompt,
+        },
+      ],
+    },
+  }));
+
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    // Find the image part in the response, do not assume it is the first part.
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  return null;
+};
+
+// --- Video ---
 
 export const generateVideo = async (prompt: string, aspectRatio: '16:9' | '9:16' = '16:9') => {
-  // Veo requires the user to select their OWN paid API key in a real deployment.
   const model = 'veo-3.1-fast-generate-preview';
-  
   const ai = getAiClient();
   
   let operation = await ai.models.generateVideos({
     model,
     prompt,
-    config: {
-      numberOfVideos: 1,
-      resolution: '720p',
-      aspectRatio
-    }
+    config: { numberOfVideos: 1, resolution: '720p', aspectRatio }
   });
 
-  // Polling loop
   while (!operation.done) {
     await new Promise(resolve => setTimeout(resolve, 5000));
     operation = await ai.operations.getVideosOperation({ operation });
   }
 
   const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-  if (!videoUri) throw new Error("Video generation failed");
-  
-  // Fetch actual bytes (mocked slightly here as we can't fetch from backend in browser without proxy often)
   return `${videoUri}&key=${process.env.API_KEY}`;
 };
 
-
-// --- Live API helper ---
-export const getLiveClient = () => {
-    return getAiClient().live;
-}
+export const getLiveClient = () => getAiClient().live;

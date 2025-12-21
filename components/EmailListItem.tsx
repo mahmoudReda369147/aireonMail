@@ -19,7 +19,9 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
   const selected = id === email.id;
 
   useEffect(() => {
-    // Automatically generate summary if missing
+    // TEMPORARILY DISABLED - Auto-summary generation
+    // Uncomment to re-enable automatic summary generation
+    /*
     if (!email.summary && !isAnalyzing) {
       const analyze = async () => {
         // Add random stagger delay (0-5s) to avoid thundering herd on inbox load causing 429s
@@ -31,7 +33,7 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
           // Determine if we should treat this as a smart analysis or just summary
           // getSmartInboxAnalysis returns { priorityScore, summary, tags }
           const analysis = await getSmartInboxAnalysis(email.body, email.subject);
-          
+
           updateEmail(email.id, {
              summary: analysis.summary,
              // We preserve existing priority/tags if they exist, otherwise use AI suggestions
@@ -46,6 +48,7 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
       };
       analyze();
     }
+    */
   }, [email.id, email.summary]);
 
   return (

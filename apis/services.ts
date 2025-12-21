@@ -223,7 +223,7 @@ export const mapGmailSentEmailToEmail = (gmailSentEmail: GmailSentEmail): import
     senderEmail: extractEmail(gmailSentEmail.to),
     subject: gmailSentEmail.subject,
     preview: gmailSentEmail.snippet,
-    body: '', // Sent emails might not include body in list view
+    body: gmailSentEmail.htmlBody||gmailSentEmail.textBody, // Sent emails might not include body in list view
     timestamp: gmailSentEmail.date,
     read: true, // Sent emails are always "read"
     folder: 'sent' as const,
