@@ -230,12 +230,13 @@ export const mapGmailEmailToEmail = (gmailEmail: GmailEmail): import('../types')
     subject: gmailEmail.subject,
     preview: gmailEmail.snippet,
     body: gmailEmail.textBody || gmailEmail.htmlBody || '',
+    htmlBody: gmailEmail.htmlBody || '',
     timestamp: gmailEmail.date,
     read: false, // Gmail doesn't provide read status in this structure
     folder: 'inbox' as const,
     attachments: gmailEmail.attachments.map(att => ({
       name: att.filename,
-      type: att.mimeType?.startsWith('image/') ? 'image' : 
+      type: att.mimeType?.startsWith('image/') ? 'image' :
             att.mimeType?.startsWith('video/') ? 'video' : 'document',
       url: att.data || '',
       size: att.size ? `${att.size} bytes` : 'Unknown size'
@@ -263,7 +264,8 @@ export const mapGmailSentEmailToEmail = (gmailSentEmail: GmailSentEmail): import
     senderEmail: extractEmail(gmailSentEmail.to),
     subject: gmailSentEmail.subject,
     preview: gmailSentEmail.snippet,
-    body: gmailSentEmail.htmlBody||gmailSentEmail.textBody, // Sent emails might not include body in list view
+    body: gmailSentEmail.snippet, // Sent emails might not include body in list view
+    htmlBody: '',
     timestamp: gmailSentEmail.date,
     read: true, // Sent emails are always "read"
     folder: 'sent' as const,
@@ -523,5 +525,28 @@ export const updateTask = async (id: string, data: UpdateTaskRequest): Promise<T
 
 export const deleteTask = async (id: string): Promise<DeleteTaskResponse> => {
   const response = await del<DeleteTaskResponse>(`/tasks/${id}`);
+  return response.data;
+};
+
+// Send Email Reply interfaces
+export interface SendEmailReplyRequest {
+  to: string;
+  subject: string;
+  body: string;
+  gmailId: string;
+}
+
+export interface SendEmailReplyResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    threadId: string;
+  };
+}
+
+// Send Email Reply service function
+export const sendEmailReply = async (data: SendEmailReplyRequest): Promise<SendEmailReplyResponse> => {
+  const response = await post<SendEmailReplyResponse>('/gmail/send', data);
   return response.data;
 };

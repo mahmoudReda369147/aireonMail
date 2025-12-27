@@ -140,12 +140,40 @@ Email Body: "${emailBody}"`,
 };
 
 export const generateReply = async (email: Email, instruction: string) => {
-  // Use Gemini 3 Pro for creative writing
-  const model = "gemini-3-flash-preview"; 
+  // Use Gemini 3 Flash for creative writing
+  const model = "gemini-3-flash-preview";
   const ai = getAiClient();
+
+  const prompt = `You are a professional email writing assistant. Generate a well-structured, professional HTML email reply.
+
+**Original Email Context:**
+- From: ${email.sender}
+- Email: ${email.senderEmail}
+- Subject: ${email.subject}
+- Date: ${email.timestamp}
+- Original Message: ${email.body || email.preview || email.htmlBody}
+
+**User Instructions:**
+${instruction}
+
+**Requirements:**
+1. Write a complete, professional email reply in HTML format
+2. Use proper email structure with greeting and closing
+3. Match the tone to the original email (formal/casual)
+4. Address all points mentioned in the user's instructions
+5. Be concise but thorough
+6. Use proper HTML formatting: <p> for paragraphs, <br> for line breaks, <strong> for emphasis
+7. Include a professional email signature at the end
+8. If the original email asks questions, answer them clearly
+9. Maintain a friendly yet professional tone
+10. Do not include subject line or email headers in the response
+
+**Output Format:**
+Return ONLY the HTML body content (no <html>, <head>, or <body> tags). Start directly with the greeting.`;
+
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Write an HTML reply to: From: ${email.sender}, Subject: ${email.subject}. Instruction: ${instruction}`,
+    contents: prompt,
   }));
   return response.text;
 };
@@ -153,9 +181,31 @@ export const generateReply = async (email: Email, instruction: string) => {
 export const improveDraft = async (draft: string, instruction: string) => {
   const model = "gemini-3-flash-preview";
   const ai = getAiClient();
+
+  const prompt = `You are a professional email editor and writing coach. Improve the following email draft based on the user's specific instructions.
+
+**Original Draft:**
+${draft}
+
+**Improvement Instructions:**
+${instruction}
+
+**Your Task:**
+1. Carefully read the original draft and the improvement instructions
+2. Apply the requested improvements while maintaining the core message
+3. Enhance clarity, professionalism, and tone
+4. Fix any grammar, spelling, or punctuation errors
+5. Improve sentence structure and flow
+6. Keep the same HTML formatting style as the original
+7. Maintain or improve the level of formality/casualness as appropriate
+8. Ensure the message remains concise and impactful
+
+**Output Format:**
+Return ONLY the improved HTML email content. Do not include explanations, comments, or metadata. Start directly with the email content.`;
+
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Improve this email draft: "${instruction}".\n\nDraft:\n${draft}`,
+    contents: prompt,
   }));
   return response.text;
 };
@@ -163,9 +213,44 @@ export const improveDraft = async (draft: string, instruction: string) => {
 export const generateEmailDraft = async (prompt: string, senderName: string) => {
   const model = "gemini-3-flash-preview";
   const ai = getAiClient();
+
+  const systemPrompt = `You are an expert email writing assistant. Create a professional, well-structured email draft based on the user's request.
+
+**Sender Information:**
+Name: ${senderName}
+
+**User's Request:**
+${prompt}
+
+**Instructions:**
+1. Write a complete, professional email in HTML format
+2. Infer the purpose and tone from the user's request
+3. Structure the email properly with:
+   - Appropriate greeting (Dear/Hi/Hello based on formality)
+   - Clear and organized body paragraphs
+   - Professional closing
+   - Signature line with sender's name
+4. Use proper HTML formatting:
+   - <p> tags for paragraphs
+   - <br> for line breaks where needed
+   - <strong> or <em> for emphasis when appropriate
+   - <ul> and <li> for lists if needed
+5. Match the tone to the context:
+   - Formal for business/professional contexts
+   - Friendly but professional for colleagues
+   - Warm and casual for informal contexts
+6. Be clear, concise, and purposeful
+7. If requesting something, be polite and specific
+8. If responding to a situation, be empathetic and solution-focused
+9. Include all necessary details that can be inferred from the request
+10. Ensure proper grammar, spelling, and punctuation
+
+**Output Format:**
+Return ONLY the HTML email body content (no <html>, <head>, or <body> tags). Start with the greeting and end with the signature.`;
+
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model,
-    contents: `Draft an email for: "${prompt}". Sender: ${senderName}`,
+    contents: systemPrompt,
   }));
   return response.text;
 };

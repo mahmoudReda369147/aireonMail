@@ -8,7 +8,7 @@ import { Spinner } from './common/Spinner';
 import { generateReply, editImage, analyzeActionItems, improveDraft, getSmartInboxAnalysis } from '../services/geminiService';
 import { useToast } from './common/Toast';
 import { useAppContext } from '../contexts/AppContext';
-import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask } from '../apis/hooks';
+import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply } from '../apis/hooks';
 import { CalendarTaskData, GmailEmail, TaskData } from '../apis/services';
 import { formatWhatsAppDate } from '../utils/dateFormat';
 
@@ -25,6 +25,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
+  const sendEmailReplyMutation = useSendEmailReply();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -374,14 +375,26 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
       }
   };
 
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
       console.log("Sending HTML Content:", replyHtml);
       if (!replyHtml.trim()) {
           showToast("Please write a message first", "error");
           return;
       }
-      showToast("Reply sent successfully!", "success");
-      setReplyHtml("");
+
+      try {
+          await sendEmailReplyMutation.mutateAsync({
+              to: email.senderEmail,
+              subject: `Re: ${email.subject}`,
+              body: replyHtml,
+              gmailId: email.id,
+          });
+          showToast("Reply sent successfully!", "success");
+          setReplyHtml("");
+      } catch (error) {
+          console.error("Failed to send reply:", error);
+          showToast("Failed to send reply", "error");
+      }
   };
 
   const ToolCard = ({ icon: Icon, label, color, onClick }: any) => (
@@ -784,8 +797,8 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 </div>
                 <div className="flex justify-between items-center p-2 px-3">
                     <div className="flex gap-1"></div>
-                    <Button onClick={handleSendReply}>
-                        <Send className="w-4 h-4" /> Send Reply
+                    <Button onClick={handleSendReply} loading={sendEmailReplyMutation.isPending}>
+                        <Send className="w-4 h-4" /> {sendEmailReplyMutation.isPending ? 'Sending...' : 'Send Reply'}
                     </Button>
                 </div>
             </div>

@@ -41,6 +41,7 @@ export interface Email {
   senderEmail: string;
   subject: string;
   preview: string;
+  htmlBody: string;
   body: string;
   timestamp: string;
   read: boolean;
