@@ -241,3 +241,70 @@ export const mapUserTemplateToEmailTemplate = (userTemplate: UserTemplate): impo
     category: userTemplate.categure
   };
 };
+
+// Calendar Task interfaces
+export interface CalendarTaskRequest {
+  title: string;
+  description: string;
+  status: 'pending' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  dueDate: string;
+  gmailId: string;
+}
+
+export interface CalendarTaskData {
+  id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: string;
+  priority: string;
+  userId: string;
+  gmailId: string;
+  googleEventId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CalendarTaskResponse {
+  success: boolean;
+  message: string;
+  data: CalendarTaskData;
+  meta: null;
+}
+
+// Calendar Task service function
+export const createCalendarTask = async (data: CalendarTaskRequest): Promise<CalendarTaskResponse> => {
+  const response = await post<CalendarTaskResponse>('/calendar/tasks', data);
+  return response.data;
+};
+
+// Gmail Summary interfaces
+export interface GmailSummaryRequest {
+  summary: string;
+  priority: number;
+  gmailId: string;
+}
+
+export interface GmailSummaryData {
+  id: string;
+  summary: string;
+  priority: number;
+  gmailId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GmailSummaryResponse {
+  success: boolean;
+  message: string;
+  data: GmailSummaryData;
+  meta: null;
+}
+
+// Gmail Summary service function
+export const saveGmailSummary = async (data: GmailSummaryRequest): Promise<GmailSummaryResponse> => {
+  const response = await post<GmailSummaryResponse>('/gmail/summary', data);
+  return response.data;
+};

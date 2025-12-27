@@ -4,9 +4,11 @@ import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as Im
 import { useNavigate } from 'react-router-dom';
 import { Button } from './common/Button';
 import { RichEditor } from './common/RichEditor'; // Import the new editor
-import { generateReply, editImage, analyzeActionItems, improveDraft } from '../services/geminiService';
+import { generateReply, editImage, analyzeActionItems, improveDraft, getSmartInboxAnalysis } from '../services/geminiService';
 import { useToast } from './common/Toast';
 import { useAppContext } from '../contexts/AppContext';
+import { useCreateCalendarTask, useSaveGmailSummary } from '../apis/hooks';
+import { CalendarTaskData } from '../apis/services';
 
 interface Props {
     email: Email;
@@ -15,16 +17,33 @@ interface Props {
 export const EmailDetail: React.FC<Props> = ({ email }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { deleteEmail, requestConfirm } = useAppContext();
+  const { deleteEmail, requestConfirm, updateEmail } = useAppContext();
+  const createCalendarTaskMutation = useCreateCalendarTask();
+  const saveGmailSummaryMutation = useSaveGmailSummary();
   const [replyHtml, setReplyHtml] = useState(''); // Changed to replyHtml
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzingSummary, setIsAnalyzingSummary] = useState(false);
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState('');
   const [detectedMeeting, setDetectedMeeting] = useState<any>(null);
+  const [savedCalendarTask, setSavedCalendarTask] = useState<CalendarTaskData | null>(null);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
+  const [calendarForm, setCalendarForm] = useState({
+    title: '',
+    description: '',
+    status: 'pending' as 'pending' | 'completed',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    dueDate: ''
+  });
 
   // Local tasks state for Gmail emails (not in AppContext)
   const [localTasks, setLocalTasks] = useState<Task[]>(email.tasks || []);
+
+  // AI Summary State (independent from email.summary)
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiPriority, setAiPriority] = useState<number | null>(null);
 
   // AI Assistant State
   const [showAi, setShowAi] = useState(false);
@@ -37,7 +56,45 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     setShowAi(false);
     setAiPrompt('');
     setLocalTasks(email.tasks || []);
+    setSavedCalendarTask(null);
+    setShowCalendarModal(false);
+    setIsAddingToCalendar(false);
+    setAiSummary(null); // Reset AI summary for new email
+    setAiPriority(null); // Reset AI priority for new email
+    setIsAnalyzingSummary(false); // Reset AI summary analyzing state
   }, [email.id]);
+
+  // Auto-generate AI summary when email is opened (independent state)
+  useEffect(() => {
+    if (!aiSummary && !isAnalyzingSummary) {
+      const analyzeEmail = async () => {
+        setIsAnalyzingSummary(true);
+        try {
+          const analysis = await getSmartInboxAnalysis(email.body, email.subject);
+
+          // Store in local state
+          setAiSummary(analysis.summary);
+          setAiPriority(analysis.priorityScore);
+
+          // Save to database
+          await saveGmailSummaryMutation.mutateAsync({
+            summary: analysis.summary,
+            priority: analysis.priorityScore,
+            gmailId: email.id
+          });
+
+          showToast("AI analysis completed and saved", "success");
+        } catch (e) {
+          console.error("AI analysis failed", e);
+          showToast("Failed to save AI summary", "error");
+        } finally {
+          setIsAnalyzingSummary(false);
+        }
+      };
+
+      analyzeEmail();
+    }
+  }, [email.id, aiSummary, isAnalyzingSummary, email.body, email.subject]);
 
   const handleDelete = () => {
     requestConfirm({
@@ -139,8 +196,54 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   };
 
   const addToCalendar = () => {
-      showToast("Event added to your calendar", "success");
-      setDetectedMeeting(null); // Clear after adding
+      if (!detectedMeeting) return;
+
+      // Parse date and time to create ISO string with timezone
+      // If date is in YYYY-MM-DD format and time in HH:MM format, combine them
+      const dateStr = detectedMeeting.date; // Should be YYYY-MM-DD
+      const timeStr = detectedMeeting.time || '12:00'; // Should be HH:MM
+
+      // For API, we need timezone format: YYYY-MM-DDTHH:mm:ss+02:00
+      const dateTimeString = `${dateStr}T${timeStr}:00+02:00`;
+
+      setCalendarForm({
+        title: detectedMeeting.title || '',
+        description: detectedMeeting.agenda || '',
+        status: 'pending',
+        priority: 'medium',
+        dueDate: dateTimeString
+      });
+
+      setShowCalendarModal(true);
+  };
+
+  const handleCalendarFormChange = (field: string, value: string) => {
+      setCalendarForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitCalendar = async () => {
+      setIsAddingToCalendar(true);
+      setShowCalendarModal(false);
+
+      try {
+          const response = await createCalendarTaskMutation.mutateAsync({
+              title: calendarForm.title,
+              description: calendarForm.description,
+              status: calendarForm.status,
+              priority: calendarForm.priority,
+              dueDate: calendarForm.dueDate,
+              gmailId: email.id
+          });
+
+          setSavedCalendarTask(response.data);
+          showToast("Task added successfully to database and Google Calendar", "success");
+          setDetectedMeeting(null);
+      } catch (error) {
+          showToast("Failed to add task to calendar", "error");
+          console.error("Calendar task error:", error);
+      } finally {
+          setIsAddingToCalendar(false);
+      }
   };
 
   const handleSendReply = () => {
@@ -209,16 +312,38 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
             {/* AI Insights, Meetings & Tasks Section */}
             <div className="grid gap-6 mb-8">
-                {email.isSmart && (
+                {(aiSummary || isAnalyzingSummary) && (
                     <div className="bg-gradient-to-r from-fuchsia-900/10 to-purple-900/10 p-6 rounded-2xl border border-fuchsia-500/20 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Sparkles className="w-24 h-24 text-fuchsia-500" />
                         </div>
-                        <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="w-4 h-4 text-fuchsia-400" />
-                            <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">AI Insight</span>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                {isAnalyzingSummary ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">Analyzing with AI...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4 text-fuchsia-400" />
+                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">AI Insight</span>
+                                    </>
+                                )}
+                            </div>
+                            {!isAnalyzingSummary && aiPriority !== null && (
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                    aiPriority > 70 ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                    aiPriority > 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                    'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                }`}>
+                                    Priority: {aiPriority}
+                                </span>
+                            )}
                         </div>
-                        <p className="text-base text-slate-200 leading-relaxed font-light">{email.summary}</p>
+                        <p className="text-base text-slate-200 leading-relaxed font-light">
+                            {isAnalyzingSummary ? "Generating smart summary..." : aiSummary}
+                        </p>
                     </div>
                 )}
                 
@@ -230,8 +355,17 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                 <Calendar className="w-5 h-5 text-blue-400" />
                                 <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Suggested Event</span>
                              </div>
-                             <Button onClick={addToCalendar} className="bg-blue-600 hover:bg-blue-500 text-xs py-1.5 px-4 shadow-lg shadow-blue-500/30 h-8">
-                                <Plus className="w-3 h-3" /> Add to Calendar
+                             <Button onClick={addToCalendar} disabled={isAddingToCalendar} className="bg-blue-600 hover:bg-blue-500 text-xs py-1.5 px-4 shadow-lg shadow-blue-500/30 h-8">
+                                {isAddingToCalendar ? (
+                                    <>
+                                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Adding...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-3 h-3" /> Add to Calendar
+                                    </>
+                                )}
                              </Button>
                         </div>
                         <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3 backdrop-blur-sm">
@@ -247,6 +381,41 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                     {detectedMeeting.agenda}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Saved Calendar Task Card */}
+                {savedCalendarTask && (
+                    <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 p-6 rounded-2xl border border-green-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(34,197,94,0.15)]">
+                        <div className="flex items-center justify-between mb-4">
+                             <div className="flex items-center gap-2">
+                                <CheckCircle2 className="w-5 h-5 text-green-400" />
+                                <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Added to Calendar</span>
+                             </div>
+                             <span className={`text-[10px] px-2 py-1 rounded border ${
+                                savedCalendarTask.priority === 'high' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                savedCalendarTask.priority === 'medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
+                                'text-slate-400 border-slate-600 bg-slate-700/30'
+                             }`}>
+                                {savedCalendarTask.priority}
+                             </span>
+                        </div>
+                        <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3 backdrop-blur-sm">
+                            <div className="font-bold text-white text-lg tracking-tight">{savedCalendarTask.title}</div>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+                                <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-slate-500" /> {new Date(savedCalendarTask.dueDate).toLocaleDateString()}</div>
+                                <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-500" /> {new Date(savedCalendarTask.dueDate).toLocaleTimeString()}</div>
+                            </div>
+                            {savedCalendarTask.description && (
+                                <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
+                                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">Description</span>
+                                    {savedCalendarTask.description}
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-3">
+                                <span>Google Event ID: {savedCalendarTask.googleEventId}</span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -474,7 +643,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 <div className="bg-space border border-glass-border rounded-3xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
                     <div className="p-5 border-b border-glass-border flex justify-between items-center bg-surface/50">
                         <h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-fuchsia-500" /> AI Editor</h3>
-                        <Button variant="icon" onClick={() => setEditingImage(null)} icon={X} /> 
+                        <Button variant="icon" onClick={() => setEditingImage(null)} icon={X} />
                     </div>
                     <div className="flex-1 flex bg-black/20 items-center justify-center p-8">
                          <img src={editingImage} className="max-w-full max-h-[600px] object-contain" />
@@ -482,6 +651,93 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                     <div className="p-6 bg-surface/50 border-t border-glass-border flex gap-4">
                         <input value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} className="flex-1 bg-black/30 border border-glass-border rounded-xl px-5 py-3 text-white outline-none" placeholder="Describe edits..." />
                         <Button onClick={handleEditAttachment}>Apply Edits</Button>
+                    </div>
+                </div>
+             </div>
+        )}
+
+        {/* Calendar Task Modal */}
+        {showCalendarModal && (
+             <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-8">
+                <div className="bg-space border border-glass-border rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+                    <div className="p-5 border-b border-glass-border flex justify-between items-center bg-surface/50">
+                        <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-blue-500" /> Add to Calendar
+                        </h3>
+                        <Button variant="icon" onClick={() => setShowCalendarModal(false)} icon={X} />
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-300 mb-2">Title</label>
+                            <input
+                                type="text"
+                                value={calendarForm.title}
+                                onChange={e => handleCalendarFormChange('title', e.target.value)}
+                                className="w-full bg-black/30 border border-glass-border rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-colors"
+                                placeholder="Event title"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-300 mb-2">Description</label>
+                            <textarea
+                                value={calendarForm.description}
+                                onChange={e => handleCalendarFormChange('description', e.target.value)}
+                                className="w-full bg-black/30 border border-glass-border rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-colors resize-none"
+                                placeholder="Event description"
+                                rows={4}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-300 mb-2">Status</label>
+                                <select
+                                    value={calendarForm.status}
+                                    onChange={e => handleCalendarFormChange('status', e.target.value)}
+                                    className="w-full bg-black/30 border border-glass-border rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-colors"
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-300 mb-2">Priority</label>
+                                <select
+                                    value={calendarForm.priority}
+                                    onChange={e => handleCalendarFormChange('priority', e.target.value)}
+                                    className="w-full bg-black/30 border border-glass-border rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-colors"
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-300 mb-2">Due Date & Time</label>
+                            <input
+                                type="datetime-local"
+                                value={calendarForm.dueDate.slice(0, 16)}
+                                onChange={e => {
+                                    // Convert datetime-local format (YYYY-MM-DDTHH:mm) to ISO with timezone
+                                    const localDateTime = e.target.value;
+                                    const isoWithTimezone = `${localDateTime}:00+02:00`;
+                                    handleCalendarFormChange('dueDate', isoWithTimezone);
+                                }}
+                                className="w-full bg-black/30 border border-glass-border rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-colors"
+                            />
+                        </div>
+                    </div>
+                    <div className="p-6 bg-surface/50 border-t border-glass-border flex gap-4 justify-end">
+                        <Button variant="secondary" onClick={() => setShowCalendarModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSubmitCalendar} className="bg-blue-600 hover:bg-blue-500">
+                            <Calendar className="w-4 h-4" /> Add to Calendar
+                        </Button>
                     </div>
                 </div>
              </div>

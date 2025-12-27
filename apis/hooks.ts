@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -22,6 +22,12 @@ export const DELETE_TEMPLATE_MUTATION_KEY = 'delete-template';
 
 // React Query key for Gmail send
 export const GMAIL_SEND_MUTATION_KEY = 'gmail-send';
+
+// React Query key for calendar task
+export const CALENDAR_TASK_MUTATION_KEY = 'calendar-task';
+
+// React Query key for gmail summary
+export const GMAIL_SUMMARY_MUTATION_KEY = 'gmail-summary';
 
 // Hook for fetching Gmail emails with infinite scroll pagination
 export const useGmailEmails = () => {
@@ -138,5 +144,21 @@ export const useGmailSend = () => {
       // Optionally invalidate email queries to refresh the inbox
       // This could be added later if needed
     },
+  });
+};
+
+// Hook for creating calendar task
+export const useCreateCalendarTask = () => {
+  return useMutation({
+    mutationKey: [CALENDAR_TASK_MUTATION_KEY],
+    mutationFn: (data: CalendarTaskRequest) => createCalendarTask(data),
+  });
+};
+
+// Hook for saving gmail summary
+export const useSaveGmailSummary = () => {
+  return useMutation({
+    mutationKey: [GMAIL_SUMMARY_MUTATION_KEY],
+    mutationFn: (data: GmailSummaryRequest) => saveGmailSummary(data),
   });
 };

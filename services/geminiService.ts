@@ -77,9 +77,20 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
   const ai = getAiClient();
 
   try {
-    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+     // Get current date and time for Gemini to calculate relative dates
+  const currentDate = new Date();
+  const currentDateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentTimeStr = currentDate.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+  const currentDayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
       model,
-      contents: `Extract tasks and meetings from: "${currentSubject}" - "${emailBody}"`,
+      contents: `Today is ${currentDayOfWeek}, ${currentDateStr} at ${currentTimeStr}.
+
+Extract tasks and meetings from the following email. When you find dates like "tomorrow", "next Tuesday", etc., convert them to actual YYYY-MM-DD format based on today's date.
+
+Email Subject: "${currentSubject}"
+Email Body: "${emailBody}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -101,8 +112,8 @@ export const analyzeActionItems = async (emailBody: string, currentSubject: stri
               type: Type.OBJECT,
               properties: {
                  title: { type: Type.STRING },
-                 date: { type: Type.STRING },
-                 time: { type: Type.STRING },
+                 date: { type: Type.STRING, description: "Date in YYYY-MM-DD format, convert relative dates like 'tomorrow' or 'next Tuesday' to actual dates based on today's date" },
+                 time: { type: Type.STRING, description: "Time in HH:MM 24-hour format" },
                  duration: { type: Type.STRING },
                  agenda: { type: Type.STRING }
               },
