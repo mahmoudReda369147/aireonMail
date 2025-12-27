@@ -313,9 +313,74 @@ export interface CalendarTaskResponse {
   meta: null;
 }
 
+export interface CalendarTasksMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  pendingTasks?: number;
+  completedTasks?: number;
+}
+
+export interface CalendarTasksResponse {
+  success: boolean;
+  message: string;
+  data: CalendarTaskData[];
+  meta: CalendarTasksMeta;
+}
+
+export interface FetchCalendarTasksParams {
+  status?: 'pending' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
+  from?: string;
+  to?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 // Calendar Task service function
 export const createCalendarTask = async (data: CalendarTaskRequest): Promise<CalendarTaskResponse> => {
   const response = await post<CalendarTaskResponse>('/calendar/tasks', data);
+  return response.data;
+};
+
+export const fetchCalendarTasks = async (params: FetchCalendarTasksParams): Promise<CalendarTasksResponse> => {
+  const queryParams = new URLSearchParams();
+
+  if (params.status) queryParams.append('status', params.status);
+  if (params.priority) queryParams.append('priority', params.priority);
+  if (params.from) queryParams.append('from', params.from);
+  if (params.to) queryParams.append('to', params.to);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.limit) queryParams.append('limit', params.limit.toString());
+
+  const url = `/calendar/tasks?${queryParams.toString()}`;
+  const response = await get<CalendarTasksResponse>(url);
+  return response.data;
+};
+
+export interface UpdateCalendarTaskRequest {
+  title?: string;
+  description?: string;
+  dueDate?: string;
+  priority?: 'low' | 'medium' | 'high';
+  status?: 'pending' | 'completed';
+}
+
+export interface CalendarTaskResponse {
+  success: boolean;
+  data: CalendarTaskData;
+}
+
+export const updateCalendarTask = async (id: string, data: UpdateCalendarTaskRequest): Promise<CalendarTaskResponse> => {
+  const response = await put<CalendarTaskResponse>(`/calendar/tasks/${id}`, data);
+  return response.data;
+};
+
+export const deleteCalendarTask = async (id: string): Promise<{ success: boolean }> => {
+  const response = await del<{ success: boolean }>(`/calendar/tasks/${id}`);
   return response.data;
 };
 
@@ -419,6 +484,34 @@ export const fetchTasks = async (gmailId: string, page: number = 1, limit: numbe
   params.append('limit', limit.toString());
 
   const url = `/tasks/gmail/${gmailId}?${params.toString()}`;
+  const response = await get<TasksResponse>(url);
+  return response.data;
+};
+
+export interface FetchAllTasksParams {
+  gmailId?: string;
+  isDoneTask?: boolean;
+  priority?: 'low' | 'medium' | 'high';
+  page?: number;
+  limit?: number;
+  search?: string;
+  from?: string;
+  to?: string;
+}
+
+export const fetchAllTasks = async (params: FetchAllTasksParams): Promise<TasksResponse> => {
+  const queryParams = new URLSearchParams();
+
+  if (params.gmailId) queryParams.append('gmailId', params.gmailId);
+  if (params.isDoneTask !== undefined) queryParams.append('isDoneTask', params.isDoneTask.toString());
+  if (params.priority) queryParams.append('priority', params.priority);
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.limit) queryParams.append('limit', params.limit.toString());
+  if (params.search) queryParams.append('search', params.search);
+  if (params.from) queryParams.append('from', params.from);
+  if (params.to) queryParams.append('to', params.to);
+
+  const url = `/tasks?${queryParams.toString()}`;
   const response = await get<TasksResponse>(url);
   return response.data;
 };

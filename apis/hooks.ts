@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -37,6 +37,9 @@ export const TASKS_QUERY_KEY = 'tasks';
 export const CREATE_TASK_MUTATION_KEY = 'create-task';
 export const UPDATE_TASK_MUTATION_KEY = 'update-task';
 export const DELETE_TASK_MUTATION_KEY = 'delete-task';
+
+// React Query key for calendar tasks
+export const CALENDAR_TASKS_QUERY_KEY = 'calendar-tasks';
 
 // Hook for fetching Gmail emails with infinite scroll pagination
 export const useGmailEmails = () => {
@@ -195,6 +198,16 @@ export const useTasks = (gmailId: string, page: number = 1, limit: number = 10) 
   });
 };
 
+// Hook for fetching all tasks with filters
+export const useAllTasks = (params: FetchAllTasksParams) => {
+  return useQuery<TasksResponse>({
+    queryKey: [TASKS_QUERY_KEY, 'all', params],
+    queryFn: () => fetchAllTasks(params),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
 // Hook for creating task
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
@@ -233,6 +246,37 @@ export const useDeleteTask = () => {
     onSuccess: () => {
       // Invalidate and refetch tasks after deleting
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for fetching calendar tasks with filters
+export const useCalendarTasks = (params: FetchCalendarTasksParams) => {
+  return useQuery<CalendarTasksResponse>({
+    queryKey: [CALENDAR_TASKS_QUERY_KEY, params],
+    queryFn: () => fetchCalendarTasks(params),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+export const useUpdateCalendarTask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateCalendarTaskRequest }) =>
+      updateCalendarTask(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [CALENDAR_TASKS_QUERY_KEY] });
+    },
+  });
+};
+
+export const useDeleteCalendarTask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteCalendarTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [CALENDAR_TASKS_QUERY_KEY] });
     },
   });
 };

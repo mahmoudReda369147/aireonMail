@@ -21,6 +21,8 @@ import { PlansPage } from './pages/PlansPage';
 import { LoginPage } from './pages/LoginPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { TemplateEditorPage } from './pages/TemplateEditorPage';
+import { TasksPage } from './pages/TasksPage';
+import { CalendarTasksPage } from './pages/CalendarTasksPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -79,6 +81,9 @@ const AppRoutes = () => {
 
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/templates/editor" element={<TemplateEditorPage />} />
+
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/calendar" element={<CalendarTasksPage />} />
 
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/accounts" element={<AccountsPage />} />
