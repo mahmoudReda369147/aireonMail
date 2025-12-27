@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Mic, MicOff, Volume2, Sparkles, Minus, Maximize2, GripHorizontal } from 'lucide-react';
+import { X, Mic, MicOff, Volume2, Sparkles, Minus, Maximize2, GripHorizontal, AlertCircle } from 'lucide-react';
 import { getLiveClient } from '../services/geminiService';
 import { createPcmBlob, decodeAudioData, base64ToUint8Array } from '../services/audioUtils';
 import { Modality, LiveServerMessage, Type, FunctionDeclaration } from '@google/genai';
@@ -15,7 +15,8 @@ interface LiveAssistantProps {
 export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails }) => {
   const { liveAssistantConfig } = useAppContext();
   const [isActive, setIsActive] = useState(false);
-  const [status, setStatus] = useState("Connecting...");
+  const [status, setStatus] = useState("Initializing...");
+  const [error, setError] = useState<string | null>(null);
   const [volume, setVolume] = useState(0); 
 
   // UI State for Drag & Minimize
@@ -70,12 +71,39 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
 
     const startSession = async () => {
       try {
-        const liveClient = getLiveClient();
-        inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-        outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
+        setStatus("Checking devices...");
+        
+        // Check for media devices support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+             throw new Error("Media devices API not supported");
+        }
 
+        // Initialize Audio Contexts
+        try {
+            inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+            outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        } catch (e) {
+            throw new Error("AudioContext not supported");
+        }
+
+        // Request Microphone
+        let stream;
+        try {
+             stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } });
+             streamRef.current = stream;
+        } catch (e: any) {
+             if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+                 throw new Error("Microphone not found");
+             } else if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                 throw new Error("Microphone permission denied");
+             } else {
+                 throw new Error("Cannot access microphone");
+             }
+        }
+
+        setStatus("Connecting to Gemini...");
+        
+        const liveClient = getLiveClient();
         const emailTool: FunctionDeclaration = {
           name: "get_emails",
           description: "Search for emails in the user's inbox. Use this to answer questions about who sent emails, what they are about, or specific details. Returns a list of matching emails.",
@@ -89,11 +117,12 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
         };
 
         const sessionPromise = liveClient.connect({
-          model: 'gemini-3-flash-preview-native-audio-preview-09-2025',
+          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
           callbacks: {
             onopen: () => {
               if (cleanup) return;
               setStatus("Listening...");
+              setError(null);
               setIsActive(true);
               const ctx = inputAudioContextRef.current!;
               const source = ctx.createMediaStreamSource(stream);
@@ -172,12 +201,17 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
               }
             },
             onclose: () => {
-              setStatus("Disconnected");
-              setIsActive(false);
+              if (!cleanup) {
+                  setStatus("Disconnected");
+                  setIsActive(false);
+              }
             },
             onerror: (err) => {
               console.error(err);
-              setStatus("Error occurred");
+              if (!cleanup) {
+                  setError("Connection Error");
+                  setStatus("Failed");
+              }
             }
           },
           config: {
@@ -190,9 +224,10 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
           }
         });
         sessionRef.current = sessionPromise;
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to start live session", err);
-        setStatus("Failed to connect");
+        setError(err.message || "Failed to start");
+        setStatus("Error");
       }
     };
     startSession();
@@ -244,23 +279,31 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
              <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-cyan-500 rounded-full blur-[60px] opacity-20 transition-opacity duration-1000 ${isActive ? 'opacity-40' : 'opacity-10'}`}></div>
              
              {/* Central Orb */}
-             <div className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'scale-110' : 'scale-100'}`}
+             <div className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'scale-110' : 'scale-100'} ${error ? 'border-2 border-red-500/50 bg-red-500/10' : ''}`}
                   style={{
-                      background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), rgba(0,0,0,0.5))',
-                      boxShadow: `0 0 ${20 + volume}px ${volume > 10 ? '#d946ef' : '#64748b'}`
+                      background: error ? 'rgba(239, 68, 68, 0.1)' : 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), rgba(0,0,0,0.5))',
+                      boxShadow: error ? '0 0 30px rgba(239,68,68,0.2)' : `0 0 ${20 + volume}px ${volume > 10 ? '#d946ef' : '#64748b'}`
                   }}
              >
                  <div className="absolute inset-0 rounded-full border border-white/10"></div>
-                 {isActive ? <Volume2 className="w-8 h-8 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]" /> : <MicOff className="w-8 h-8 text-slate-500" />}
+                 {error ? (
+                     <AlertCircle className="w-8 h-8 text-red-400" />
+                 ) : isActive ? (
+                     <Volume2 className="w-8 h-8 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                 ) : (
+                     <MicOff className="w-8 h-8 text-slate-500" />
+                 )}
              </div>
           </div>
           
           {/* Status */}
           <div className="pb-8 text-center px-6">
-            <h3 className="text-xl font-bold text-white mb-1 tracking-tight">{isActive ? "Listening..." : "Paused"}</h3>
-            <p className="text-sm text-slate-400 font-light">{status}</p>
+            <h3 className={`text-xl font-bold mb-1 tracking-tight ${error ? 'text-red-400' : 'text-white'}`}>
+                {error ? "Connection Error" : isActive ? "Listening..." : status}
+            </h3>
+            <p className="text-sm text-slate-400 font-light">{error || status}</p>
             
-            {isActive && (
+            {isActive && !error && (
                 <div className="mt-6 flex justify-center gap-1 h-8 items-end">
                     {[...Array(5)].map((_, i) => (
                         <div 
@@ -270,6 +313,15 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
                         ></div>
                     ))}
                 </div>
+            )}
+
+            {error && (
+                <button 
+                    onClick={onClose}
+                    className="mt-6 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-colors"
+                >
+                    Close
+                </button>
             )}
           </div>
       </div>

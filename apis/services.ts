@@ -11,6 +11,30 @@ export interface GmailAttachment {
   error: string | null;
 }
 
+export interface GmailEmailAiSummary {
+  id: string;
+  summary: string;
+  priority: number;
+  userId: string;
+  gmailId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GmailEmailCalendarTask {
+  id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: string;
+  priority: string;
+  userId: string;
+  gmailId: string;
+  googleEventId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GmailEmail {
   id: string;
   threadId: string;
@@ -24,6 +48,8 @@ export interface GmailEmail {
   htmlBody: string | null;
   attachments: GmailAttachment[];
   error: string | null;
+  aiSummary?: GmailEmailAiSummary | null;
+  calendarTask?: GmailEmailCalendarTask | null;
 }
 
 export interface GmailEmailsMeta {
@@ -124,15 +150,29 @@ export interface DeleteTemplateResponse {
   message: string;
 }
 
+// Single Gmail Email Response
+export interface SingleGmailEmailResponse {
+  success: boolean;
+  message: string;
+  data: GmailEmail;
+  meta: null;
+}
+
 // Gmail API service function
 export const fetchGmailEmails = async (pageToken?: string): Promise<GmailEmailsResponse> => {
   const params = new URLSearchParams();
   if (pageToken) {
     params.append('pageToken', pageToken);
   }
-  
+
   const url = `/gmail/emails${params.toString() ? `?${params.toString()}` : ''}`;
   const response = await get<GmailEmailsResponse>(url);
+  return response.data;
+};
+
+// Fetch single Gmail email by ID
+export const fetchGmailEmailById = async (emailId: string): Promise<SingleGmailEmailResponse> => {
+  const response = await get<SingleGmailEmailResponse>(`/gmail/emails/${emailId}`);
   return response.data;
 };
 
@@ -306,5 +346,89 @@ export interface GmailSummaryResponse {
 // Gmail Summary service function
 export const saveGmailSummary = async (data: GmailSummaryRequest): Promise<GmailSummaryResponse> => {
   const response = await post<GmailSummaryResponse>('/gmail/summary', data);
+  return response.data;
+};
+
+// Task interfaces
+export interface TaskRequest {
+  task: string;
+  taskDate?: string | null;
+  isDoneTask?: boolean;
+  priority: 'low' | 'medium' | 'high';
+  gmailId: string;
+}
+
+export interface TaskData {
+  id: string;
+  task: string;
+  taskDate: string | null;
+  isDoneTask: boolean;
+  priority: string;
+  userId: string;
+  gmailId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskResponse {
+  success: boolean;
+  message: string;
+  data: TaskData;
+  meta: null;
+}
+
+export interface TasksMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  gmailId?: string;
+  doneTasks?: number;
+  pendingTasks?: number;
+}
+
+export interface TasksResponse {
+  success: boolean;
+  message: string;
+  data: TaskData[];
+  meta: TasksMeta;
+}
+
+// Update Task interfaces
+export interface UpdateTaskRequest {
+  task?: string;
+  taskDate?: string | null;
+  isDoneTask?: boolean;
+  priority?: 'low' | 'medium' | 'high';
+}
+
+export interface DeleteTaskResponse {
+  success: boolean;
+  message: string;
+}
+
+// Task service functions
+export const createTask = async (data: TaskRequest): Promise<TaskResponse> => {
+  const response = await post<TaskResponse>('/tasks', data);
+  return response.data;
+};
+
+export const fetchTasks = async (gmailId: string, page: number = 1, limit: number = 10): Promise<TasksResponse> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+
+  const url = `/tasks/gmail/${gmailId}?${params.toString()}`;
+  const response = await get<TasksResponse>(url);
+  return response.data;
+};
+
+export const updateTask = async (id: string, data: UpdateTaskRequest): Promise<TaskResponse> => {
+  const response = await put<TaskResponse>(`/tasks/${id}`, data);
+  return response.data;
+};
+
+export const deleteTask = async (id: string): Promise<DeleteTaskResponse> => {
+  const response = await del<DeleteTaskResponse>(`/tasks/${id}`);
   return response.data;
 };

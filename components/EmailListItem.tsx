@@ -4,6 +4,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { getSmartInboxAnalysis } from '../services/geminiService';
+import { formatWhatsAppDateShort } from '../utils/dateFormat';
 
 interface Props {
   email: Email;
@@ -72,7 +73,7 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
             <Sparkles className="w-3 h-3 text-cyan-400 fill-cyan-400/20 animate-pulse" />
             )}
         </div>
-        <span className="text-[10px] font-medium text-slate-500">{email.timestamp}</span>
+        <span className="text-[10px] font-medium text-slate-500">{formatWhatsAppDateShort(email.timestamp)}</span>
         </div>
         
         <div className="pl-11">

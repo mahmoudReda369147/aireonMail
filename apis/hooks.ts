@@ -1,9 +1,12 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
 export const GMAIL_EMAILS_QUERY_KEY = 'gmail-emails';
+
+// React Query key for single Gmail email
+export const GMAIL_EMAIL_BY_ID_QUERY_KEY = 'gmail-email-by-id';
 
 // React Query key for Gmail sent emails
 export const GMAIL_SENT_EMAILS_QUERY_KEY = 'gmail-sent-emails';
@@ -28,6 +31,12 @@ export const CALENDAR_TASK_MUTATION_KEY = 'calendar-task';
 
 // React Query key for gmail summary
 export const GMAIL_SUMMARY_MUTATION_KEY = 'gmail-summary';
+
+// React Query key for tasks
+export const TASKS_QUERY_KEY = 'tasks';
+export const CREATE_TASK_MUTATION_KEY = 'create-task';
+export const UPDATE_TASK_MUTATION_KEY = 'update-task';
+export const DELETE_TASK_MUTATION_KEY = 'delete-task';
 
 // Hook for fetching Gmail emails with infinite scroll pagination
 export const useGmailEmails = () => {
@@ -104,6 +113,18 @@ export const useDeleteTemplate = () => {
   });
 };
 
+// Hook for fetching a single Gmail email by ID
+export const useGmailEmailById = (emailId: string) => {
+  return useQuery<SingleGmailEmailResponse>({
+    queryKey: [GMAIL_EMAIL_BY_ID_QUERY_KEY, emailId],
+    queryFn: () => fetchGmailEmailById(emailId),
+    enabled: !!emailId,
+    refetchOnWindowFocus: false,
+    staleTime: 0, // No cache - always fetch fresh data
+    gcTime: 0, // Don't keep unused data in cache
+  });
+};
+
 // Hook for fetching a single page of Gmail emails (if needed)
 export const useGmailEmailsPage = (pageToken?: string) => {
   return useQuery<GmailEmailsResponse>({
@@ -160,5 +181,58 @@ export const useSaveGmailSummary = () => {
   return useMutation({
     mutationKey: [GMAIL_SUMMARY_MUTATION_KEY],
     mutationFn: (data: GmailSummaryRequest) => saveGmailSummary(data),
+  });
+};
+
+// Hook for fetching tasks by Gmail ID with page-based pagination
+export const useTasks = (gmailId: string, page: number = 1, limit: number = 10) => {
+  return useQuery<TasksResponse>({
+    queryKey: [TASKS_QUERY_KEY, gmailId, page, limit],
+    queryFn: () => fetchTasks(gmailId, page, limit),
+    enabled: !!gmailId,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+// Hook for creating task
+export const useCreateTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [CREATE_TASK_MUTATION_KEY],
+    mutationFn: (data: TaskRequest) => createTask(data),
+    onSuccess: () => {
+      // Invalidate and refetch tasks after creating a new one
+      queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for updating task
+export const useUpdateTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [UPDATE_TASK_MUTATION_KEY],
+    mutationFn: ({ id, data }: { id: string; data: UpdateTaskRequestType }) => updateTask(id, data),
+    onSuccess: () => {
+      // Invalidate and refetch tasks after updating
+      queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for deleting task
+export const useDeleteTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [DELETE_TASK_MUTATION_KEY],
+    mutationFn: (id: string) => deleteTaskService(id),
+    onSuccess: () => {
+      // Invalidate and refetch tasks after deleting
+      queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+    },
   });
 };

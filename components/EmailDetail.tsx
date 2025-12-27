@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Email, Task } from '../types';
-import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap } from 'lucide-react';
+import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, Loader2, ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './common/Button';
 import { RichEditor } from './common/RichEditor'; // Import the new editor
+import { Spinner } from './common/Spinner';
 import { generateReply, editImage, analyzeActionItems, improveDraft, getSmartInboxAnalysis } from '../services/geminiService';
 import { useToast } from './common/Toast';
 import { useAppContext } from '../contexts/AppContext';
-import { useCreateCalendarTask, useSaveGmailSummary } from '../apis/hooks';
-import { CalendarTaskData } from '../apis/services';
+import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask } from '../apis/hooks';
+import { CalendarTaskData, GmailEmail, TaskData } from '../apis/services';
+import { formatWhatsAppDate } from '../utils/dateFormat';
 
 interface Props {
     email: Email;
@@ -20,6 +22,25 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const { deleteEmail, requestConfirm, updateEmail } = useAppContext();
   const createCalendarTaskMutation = useCreateCalendarTask();
   const saveGmailSummaryMutation = useSaveGmailSummary();
+  const createTaskMutation = useCreateTask();
+  const updateTaskMutation = useUpdateTask();
+  const deleteTaskMutation = useDeleteTask();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const tasksPerPage = 10;
+
+  const { data: tasksResponse, isLoading: isLoadingTasks } = useTasks(email.id, currentPage, tasksPerPage);
+  const allTasks = tasksResponse?.data || [];
+  const totalPages = tasksResponse?.meta.totalPages || 1;
+  const totalTasks = tasksResponse?.meta.total || 0;
+  const doneTaskes =tasksResponse?.meta.doneTasks || 0
+  const pendingTaskes =tasksResponse?.meta.pendingTasks || 0
+
+
+  // Fetch full email data from API
+  const { data: emailDataResponse, isLoading: isLoadingEmailData } = useGmailEmailById(email.id);
+  const fullEmailData = emailDataResponse?.data;
   const [replyHtml, setReplyHtml] = useState(''); // Changed to replyHtml
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -49,6 +70,14 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const [showAi, setShowAi] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
 
+  // Edit Task Modal State
+  const [editingTask, setEditingTask] = useState<TaskData | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState({
+    task: '',
+    taskDate: '',
+    priority: 'medium' as 'low' | 'medium' | 'high'
+  });
+
   // Reset state when email changes
   useEffect(() => {
     setReplyHtml('');
@@ -64,13 +93,27 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     setIsAnalyzingSummary(false); // Reset AI summary analyzing state
   }, [email.id]);
 
-  // Auto-generate AI summary when email is opened (independent state)
+  // Load AI summary and calendar task from fetched email data or generate new one
   useEffect(() => {
-    if (!aiSummary && !isAnalyzingSummary) {
+    if (!fullEmailData) return;
+
+    // Load calendar task if exists
+    if (fullEmailData.calendarTask) {
+      setSavedCalendarTask(fullEmailData.calendarTask as CalendarTaskData);
+    }
+
+    // If aiSummary exists in the fetched data, use it directly
+    if (fullEmailData.aiSummary) {
+      setAiSummary(fullEmailData.aiSummary.summary);
+      setAiPriority(fullEmailData.aiSummary.priority);
+    }
+    // If no aiSummary exists and we haven't started analyzing, generate it
+    else if (!aiSummary && !isAnalyzingSummary) {
       const analyzeEmail = async () => {
         setIsAnalyzingSummary(true);
         try {
-          const analysis = await getSmartInboxAnalysis(email.body, email.subject);
+          const emailBody = fullEmailData.textBody || fullEmailData.htmlBody || '';
+          const analysis = await getSmartInboxAnalysis(emailBody, fullEmailData.subject);
 
           // Store in local state
           setAiSummary(analysis.summary);
@@ -80,7 +123,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
           await saveGmailSummaryMutation.mutateAsync({
             summary: analysis.summary,
             priority: analysis.priorityScore,
-            gmailId: email.id
+            gmailId: fullEmailData.id
           });
 
           showToast("AI analysis completed and saved", "success");
@@ -94,7 +137,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
       analyzeEmail();
     }
-  }, [email.id, aiSummary, isAnalyzingSummary, email.body, email.subject]);
+  }, [fullEmailData, aiSummary, isAnalyzingSummary]);
 
   const handleDelete = () => {
     requestConfirm({
@@ -140,10 +183,13 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   };
 
   const handleAnalyzeActions = async () => {
+    if (!fullEmailData) return;
+
     setIsAnalyzing(true);
     setDetectedMeeting(null);
     try {
-        const result = await analyzeActionItems(email.body, email.subject);
+        const emailBody = fullEmailData.textBody || fullEmailData.htmlBody || '';
+        const result = await analyzeActionItems(emailBody, fullEmailData.subject);
 
         // Handle Tasks
         if (result.tasks && result.tasks.length > 0) {
@@ -179,6 +225,88 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const toggleTask = (taskId: string) => {
       const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
       setLocalTasks(updatedTasks);
+  };
+
+  const handleSaveTask = async (task: Task) => {
+    if (!fullEmailData) return;
+
+    try {
+      await createTaskMutation.mutateAsync({
+        task: task.description,
+        taskDate: task.deadline || null,
+        isDoneTask: task.completed,
+        priority: task.priority.toLowerCase() as 'low' | 'medium' | 'high',
+        gmailId: fullEmailData.id
+      });
+
+      // Remove task from localTasks after successful save
+      setLocalTasks(prevTasks => prevTasks.filter(t => t.id !== task.id));
+
+      showToast("Task saved successfully", "success");
+    } catch (error) {
+      console.error("Failed to save task", error);
+      showToast("Failed to save task", "error");
+    }
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    requestConfirm({
+      title: "Delete Task",
+      message: "Are you sure you want to delete this task?",
+      onConfirm: async () => {
+        try {
+          await deleteTaskMutation.mutateAsync(taskId);
+          showToast("Task deleted successfully", "success");
+        } catch (error) {
+          console.error("Failed to delete task", error);
+          showToast("Failed to delete task", "error");
+        }
+      },
+      variant: "danger"
+    });
+  };
+
+  const handleEditTask = (task: TaskData) => {
+    setEditingTask(task);
+    setEditTaskForm({
+      task: task.task,
+      taskDate: task.taskDate ? new Date(task.taskDate).toISOString().slice(0, 16) : '',
+      priority: task.priority as 'low' | 'medium' | 'high'
+    });
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+
+    try {
+      await updateTaskMutation.mutateAsync({
+        id: editingTask.id,
+        data: {
+          task: editTaskForm.task,
+          taskDate: editTaskForm.taskDate || null,
+          priority: editTaskForm.priority
+        }
+      });
+      setEditingTask(null);
+      showToast("Task updated successfully", "success");
+    } catch (error) {
+      console.error("Failed to update task", error);
+      showToast("Failed to update task", "error");
+    }
+  };
+
+  const handleToggleTaskDone = async (task: TaskData) => {
+    try {
+      await updateTaskMutation.mutateAsync({
+        id: task.id,
+        data: {
+          isDoneTask: !task.isDoneTask
+        }
+      });
+    } catch (error) {
+      console.error("Failed to update task", error);
+      showToast("Failed to update task", "error");
+    }
   };
 
   const handleEditAttachment = async () => {
@@ -268,6 +396,25 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
       </button>
   );
 
+  // Show loading state while fetching email data
+  if (isLoadingEmailData || !fullEmailData) {
+    return (
+      <div className="h-full flex flex-col relative overflow-hidden">
+        <div className="p-5 border-b border-glass-border flex justify-between items-center bg-glass backdrop-blur-md sticky top-0 z-10 shrink-0">
+          <button onClick={() => navigate(-1)} className="md:hidden flex items-center gap-2 text-slate-400 hover:text-white">
+            <ArrowLeft className="w-5 h-5" /> Back
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-slate-400 text-lg">Loading email...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
         {/* Toolbar */}
@@ -295,7 +442,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
         {/* Content */}
         <div className="flex-1 p-8 overflow-y-auto max-w-5xl mx-auto w-full custom-scrollbar relative z-0">
-            <h1 className="text-3xl font-bold text-white mb-6 leading-tight tracking-tight">{email.subject}</h1>
+            <h1 className="text-3xl font-bold text-white mb-6 leading-tight tracking-tight">{fullEmailData.subject}</h1>
             
             <div className="flex items-center justify-between mb-8 pb-8 border-b border-glass-border">
                 <div className="flex items-center gap-4">
@@ -307,7 +454,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="text-sm text-slate-400">{email.senderEmail}</div>
                     </div>
                 </div>
-                <div className="text-sm font-medium text-slate-500 bg-surface px-3 py-1 rounded-full border border-glass-border">{email.timestamp}</div>
+                <div className="text-sm font-medium text-slate-500 bg-surface px-3 py-1 rounded-full border border-glass-border">{formatWhatsAppDate(fullEmailData.date)}</div>
             </div>
 
             {/* AI Insights, Meetings & Tasks Section */}
@@ -387,16 +534,16 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
                 {/* Saved Calendar Task Card */}
                 {savedCalendarTask && (
-                    <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 p-6 rounded-2xl border border-green-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(34,197,94,0.15)]">
+                    <div className="bg-gradient-to-r from-blue-900/20 to-indigo-900/20 p-6 rounded-2xl border border-blue-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
                         <div className="flex items-center justify-between mb-4">
                              <div className="flex items-center gap-2">
                                 <CheckCircle2 className="w-5 h-5 text-green-400" />
-                                <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Added to Calendar</span>
+                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Added to Calendar</span>
                              </div>
-                             <span className={`text-[10px] px-2 py-1 rounded border ${
-                                savedCalendarTask.priority === 'high' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
-                                savedCalendarTask.priority === 'medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
-                                'text-slate-400 border-slate-600 bg-slate-700/30'
+                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                savedCalendarTask.priority === 'high' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                savedCalendarTask.priority === 'medium' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                              }`}>
                                 {savedCalendarTask.priority}
                              </span>
@@ -413,9 +560,6 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                     {savedCalendarTask.description}
                                 </div>
                             )}
-                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-3">
-                                <span>Google Event ID: {savedCalendarTask.googleEventId}</span>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -455,33 +599,166 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                             </span>
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={() => handleSaveTask(task)}
+                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
+                                    >
+                                        <Plus className="w-3 h-3" />
+                                        Save
+                                    </button>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
+
+                {/* My Tasks Section */}
+                {allTasks.length > 0 && (
+                    <div className="bg-gradient-to-r from-purple-900/10 to-pink-900/10 p-6 rounded-2xl border border-purple-500/20 relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Briefcase className="w-4 h-4 text-purple-400" />
+                                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">My Tasks</span>
+                            </div>
+                            <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">
+                                {pendingTaskes} pending
+                            </span>
+                        </div>
+                        <div className="space-y-3">
+                            {allTasks.map(task => (
+                                <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${task.isDoneTask ? 'bg-black/10 border-transparent opacity-50' : 'bg-surface/60 border-glass-border hover:bg-surface'}`}>
+                                    <div
+                                        onClick={() => handleToggleTaskDone(task)}
+                                        className={`w-5 h-5 rounded-md border flex items-center justify-center mt-0.5 cursor-pointer transition-colors ${task.isDoneTask ? 'bg-purple-500 border-purple-500 text-white' : 'border-slate-500 hover:border-purple-400'}`}
+                                    >
+                                        {task.isDoneTask && <CheckSquare className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className={`text-sm ${task.isDoneTask ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{task.task}</p>
+                                        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                            {task.taskDate && (
+                                                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                    <Calendar className="w-3 h-3" /> {new Date(task.taskDate).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                                task.priority === 'high' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                                task.priority === 'medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
+                                                'text-slate-400 border-slate-600 bg-slate-700/30'
+                                            }`}>
+                                                {task.priority}
+                                            </span>
+                                            
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleEditTask(task)}
+                                            className="p-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 transition-colors"
+                                            title="Edit task"
+                                        >
+                                            <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteTask(task.id)}
+                                            className="p-1.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-colors"
+                                            title="Delete task"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="mt-6 flex items-center justify-center gap-2">
+                                {/* Previous Button */}
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1 || isLoadingTasks}
+                                    className="p-2 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title="Previous page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+
+                                {/* Page Numbers */}
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+                                        // Show first page, last page, current page, and pages around current
+                                        const showPage =
+                                            pageNum === 1 ||
+                                            pageNum === totalPages ||
+                                            Math.abs(pageNum - currentPage) <= 1;
+
+                                        const showEllipsis =
+                                            (pageNum === 2 && currentPage > 3) ||
+                                            (pageNum === totalPages - 1 && currentPage < totalPages - 2);
+
+                                        if (!showPage && !showEllipsis) return null;
+
+                                        if (showEllipsis) {
+                                            return (
+                                                <span key={pageNum} className="px-2 text-slate-500">
+                                                    ...
+                                                </span>
+                                            );
+                                        }
+
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                disabled={isLoadingTasks}
+                                                className={`min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-all ${
+                                                    currentPage === pageNum
+                                                        ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/30'
+                                                        : 'bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-300'
+                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Next Button */}
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || isLoadingTasks}
+                                    className="p-2 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title="Next page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="prose prose-invert max-w-none text-slate-300 mb-10 whitespace-pre-line leading-relaxed font-light text-lg">
-                {console.log("email",email)}
-                {email.body}
+                {console.log("fullEmailData", fullEmailData)}
+                <div dangerouslySetInnerHTML={{ __html: fullEmailData.htmlBody || fullEmailData.textBody || '' }} />
             </div>
 
             {/* Attachments */}
-            {email.attachments?.length && (
+            {fullEmailData.attachments?.length > 0 && (
                 <div className="pt-2">
                     <h4 className="text-sm font-bold text-slate-500 mb-4 flex items-center gap-2 uppercase tracking-widest">
                         <Paperclip className="w-4 h-4" /> Attachments
                     </h4>
                     <div className="flex flex-wrap gap-4">
-                        {email.attachments.map((att, idx) => (
+                        {fullEmailData.attachments.map((att, idx) => (
                             <div key={idx} className="group relative w-56 rounded-2xl overflow-hidden border border-glass-border bg-surface transition-all hover:border-slate-600 hover:shadow-xl">
                                 <div className="h-32 overflow-hidden bg-black">
-                                    <img src={att.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all" alt="attachment" />
+                                    <img src={att.data || ''} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all" alt="attachment" />
                                 </div>
                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
-                                    <button 
-                                        onClick={() => { setEditingImage(att.url); setImagePrompt(''); }}
+                                    <button
+                                        onClick={() => { setEditingImage(att.data || ''); setImagePrompt(''); }}
                                         className="p-3 bg-white rounded-full text-black hover:scale-110 transition-transform"
                                     >
                                         <Edit3 className="w-5 h-5" />
@@ -742,6 +1019,107 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 </div>
              </div>
         )}
+
+        {/* Edit Task Modal */}
+        {editingTask && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                <div
+                    className="bg-gradient-to-br from-slate-900/95 via-purple-900/20 to-slate-900/95 backdrop-blur-xl border border-purple-500/20 rounded-3xl w-full max-w-2xl shadow-2xl shadow-purple-500/30 overflow-hidden"
+                    style={{
+                        animation: 'modalPopup 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+                    }}
+                >
+                    {/* Header with gradient */}
+                    <div className="relative p-6 border-b border-purple-500/10 bg-gradient-to-r from-purple-500/5 to-fuchsia-500/5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 border border-purple-400/20">
+                                    <Edit3 className="w-5 h-5 text-purple-300" />
+                                </div>
+                                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-200 via-fuchsia-200 to-purple-300 bg-clip-text text-transparent">
+                                    Edit Task
+                                </h2>
+                            </div>
+                            <button
+                                onClick={() => setEditingTask(null)}
+                                className="p-2 hover:bg-white/10 rounded-xl transition-all duration-200 group"
+                            >
+                                <X className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Form Content */}
+                    <div className="p-6 space-y-5">
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm font-semibold text-purple-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                                Task Description
+                            </label>
+                            <textarea
+                                value={editTaskForm.task}
+                                onChange={e => setEditTaskForm({ ...editTaskForm, task: e.target.value })}
+                                className="w-full bg-black/40 border border-purple-500/20 rounded-xl px-4 py-3 text-white placeholder-slate-500 outline-none focus:border-purple-400/50 focus:bg-black/50 focus:ring-2 focus:ring-purple-500/10 transition-all duration-200 resize-none"
+                                placeholder="Enter task description..."
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-purple-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400"></span>
+                                    Due Date
+                                    <span className="text-xs text-slate-500 font-normal">(Optional)</span>
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={editTaskForm.taskDate}
+                                    onChange={e => setEditTaskForm({ ...editTaskForm, taskDate: e.target.value })}
+                                    className="w-full bg-black/40 border border-purple-500/20 rounded-xl px-4 py-3 text-white outline-none focus:border-fuchsia-400/50 focus:bg-black/50 focus:ring-2 focus:ring-fuchsia-500/10 transition-all duration-200"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-purple-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                                    Priority
+                                </label>
+                                <select
+                                    value={editTaskForm.priority}
+                                    onChange={e => setEditTaskForm({ ...editTaskForm, priority: e.target.value as 'low' | 'medium' | 'high' })}
+                                    className="w-full bg-black/40 border border-purple-500/20 rounded-xl px-4 py-3 text-white outline-none focus:border-cyan-400/50 focus:bg-black/50 focus:ring-2 focus:ring-cyan-500/10 transition-all duration-200 cursor-pointer"
+                                >
+                                    <option value="low" className="bg-slate-900">🟢 Low Priority</option>
+                                    <option value="medium" className="bg-slate-900">🟡 Medium Priority</option>
+                                    <option value="high" className="bg-slate-900">🔴 High Priority</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer with buttons */}
+                    <div className="p-6 bg-gradient-to-r from-purple-500/5 to-fuchsia-500/5 border-t border-purple-500/10 flex gap-3 justify-end">
+                        <Button
+                            variant="secondary"
+                            onClick={() => setEditingTask(null)}
+                            className="hover:bg-white/10"
+                        >
+                            <X className="w-4 h-4" /> Cancel
+                        </Button>
+                        <Button
+                            onClick={handleUpdateTask}
+                            className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-200"
+                        >
+                            <CheckCircle2 className="w-4 h-4" /> Update Task
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Loading Popup */}
+        {(createTaskMutation.isPending || updateTaskMutation.isPending || deleteTaskMutation.isPending) && <Spinner fullScreen />}
     </div>
   );
 };
