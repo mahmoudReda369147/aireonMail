@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { Menu, Search, Mic, Bell, Globe, SlidersHorizontal, Paperclip, Calendar, X, CheckCircle, Info, AlertTriangle, Trash2, CheckCheck } from 'lucide-react';
+import { Menu, Search, Mic, Bell, Globe, SlidersHorizontal, Paperclip, Calendar, X, CheckCircle, Info, AlertTriangle, Trash2, CheckCheck, Snowflake } from 'lucide-react';
 import { Input } from './common/Input';
 import { LiveAssistant } from './LiveAssistant';
+import { SnowEffect } from './SnowEffect';
 import { useAppContext } from '../contexts/AppContext';
 
 export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
@@ -11,6 +12,7 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSnowing, setIsSnowing] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const { emails, language, setLanguage, t, searchQuery, setSearchQuery, searchFilters, setSearchFilters, notifications, markAllNotificationsRead, deleteNotification } = useAppContext();
@@ -144,14 +146,27 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
           </div>
 
           <div className="flex items-center gap-4 ml-auto rtl:mr-auto rtl:ml-0">
-            
+
             {/* Language Switcher */}
-            <button 
+            <button
                 onClick={toggleLanguage}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-glass border border-glass-border text-slate-300 hover:text-white hover:border-glass-hover transition-all text-xs font-bold"
             >
                 <Globe className="w-4 h-4" />
                 <span>{language === 'en' ? 'EN' : 'AR'}</span>
+            </button>
+
+            {/* Let it snow Button */}
+            <button
+                onClick={() => setIsSnowing(!isSnowing)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-xs font-bold ${
+                  isSnowing
+                    ? 'bg-blue-500/20 border-blue-400/50 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                    : 'bg-glass border-glass-border text-slate-300 hover:text-white hover:border-glass-hover'
+                }`}
+            >
+                <Snowflake className="w-4 h-4" />
+                <span>Let it snow</span>
             </button>
 
             {/* Mic / Live Assistant */}
@@ -241,6 +256,7 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
       </main>
 
       {isLiveActive && <LiveAssistant onClose={() => setIsLiveActive(false)} emails={emails} />}
+      {isSnowing && <SnowEffect />}
     </div>
   );
 };
