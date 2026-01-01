@@ -550,3 +550,102 @@ export const sendEmailReply = async (data: SendEmailReplyRequest): Promise<SendE
   const response = await post<SendEmailReplyResponse>('/gmail/send', data);
   return response.data;
 };
+
+// Bot interfaces
+export interface BotData {
+  id: string;
+  emails: string;
+  botName: string;
+  userId: string;
+  isactive: boolean;
+  replayTony: string;
+  isAutoReply: boolean;
+  userPrompet: string;
+  isautoSummarize: boolean;
+  isautoExtractTaskes: boolean;
+  isautoExtractMettengs: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BotsPagination {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  count: number;
+}
+
+export interface BotsMeta {
+  pagination: BotsPagination;
+}
+
+export interface BotsResponse {
+  success: boolean;
+  message: string;
+  data: BotData[];
+  meta: BotsMeta;
+}
+
+// Bots service function
+export const fetchBots = async (page: number = 1, limit: number = 10): Promise<BotsResponse> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+
+  const url = `/bots?${params.toString()}`;
+  const response = await get<BotsResponse>(url);
+  return response.data;
+};
+
+// Update Bot interfaces
+export interface UpdateBotRequest {
+  emails?: string;
+  botName?: string;
+  isactive?: boolean;
+  replayTony?: string;
+  isAutoReply?: boolean;
+  userPrompet?: string;
+  isautoSummarize?: boolean;
+  isautoExtractTaskes?: boolean;
+  isautoExtractMettengs?: boolean;
+}
+
+export interface UpdateBotResponse {
+  success: boolean;
+  message: string;
+  data: BotData;
+}
+
+// Update Bot service function
+export const updateBot = async (id: string, data: UpdateBotRequest): Promise<UpdateBotResponse> => {
+  const response = await put<UpdateBotResponse>(`/bots/${id}`, data);
+  return response.data;
+};
+
+// Create Bot interfaces
+export interface CreateBotRequest {
+  emails: string;
+  botName: string;
+  isactive?: boolean;
+  replayTony?: string;
+  isAutoReply?: boolean;
+  userPrompet?: string;
+  isautoSummarize?: boolean;
+  isautoExtractTaskes?: boolean;
+  isautoExtractMettengs?: boolean;
+}
+
+export interface CreateBotResponse {
+  success: boolean;
+  message: string;
+  data: BotData;
+}
+
+// Create Bot service function
+export const createBot = async (data: CreateBotRequest): Promise<CreateBotResponse> => {
+  const response = await post<CreateBotResponse>('/bots', data);
+  return response.data;
+};

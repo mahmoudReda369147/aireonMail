@@ -70,9 +70,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
           <div className="text-xs font-bold text-slate-500 uppercase tracking-widest px-4 mb-2">{t('menu.menu')}</div>
           <NavItem to="/inbox" icon={Inbox} label={t('menu.inbox')} count={2} />
-          <NavItem to="/smart-inbox" icon={Sparkles} label={t('menu.smart_inbox')} />
+          {/* <NavItem to="/smart-inbox" icon={Sparkles} label={t('menu.smart_inbox')} /> */}
           <NavItem to="/sent" icon={Send} label={t('menu.sent')} />
-          <NavItem to="/drafts" icon={FileText} label={t('menu.drafts')} />
+          {/* <NavItem to="/drafts" icon={FileText} label={t('menu.drafts')} /> */}
           <NavItem to="/templates" icon={LayoutTemplate} label={t('menu.templates')} />
           <NavItem to="/tasks" icon={CheckSquare} label={t('menu.tasks')} />
           <NavItem to="/calendar" icon={Calendar} label={t('menu.calendar')} />

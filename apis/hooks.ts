@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -40,6 +40,9 @@ export const DELETE_TASK_MUTATION_KEY = 'delete-task';
 
 // React Query key for calendar tasks
 export const CALENDAR_TASKS_QUERY_KEY = 'calendar-tasks';
+
+// React Query key for bots
+export const BOTS_QUERY_KEY = 'bots';
 
 // Hook for fetching Gmail emails with infinite scroll pagination
 export const useGmailEmails = () => {
@@ -285,5 +288,47 @@ export const useDeleteCalendarTask = () => {
 export const useSendEmailReply = () => {
   return useMutation({
     mutationFn: (data: SendEmailReplyRequest) => sendEmailReply(data),
+  });
+};
+
+// Hook for fetching bots with infinite scroll pagination
+export const useBots = () => {
+  return useInfiniteQuery<BotsResponse>({
+    queryKey: [BOTS_QUERY_KEY],
+    queryFn: ({ pageParam = 1 }) => fetchBots(pageParam as number, 10),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      return lastPage.meta.pagination.hasNextPage
+        ? lastPage.meta.pagination.page + 1
+        : undefined;
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+// Hook for updating bot
+export const useUpdateBot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateBotRequest }) => updateBot(id, data),
+    onSuccess: () => {
+      // Invalidate and refetch bots after updating
+      queryClient.invalidateQueries({ queryKey: [BOTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for creating bot
+export const useCreateBot = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateBotRequest) => createBot(data),
+    onSuccess: () => {
+      // Invalidate and refetch bots after creating
+      queryClient.invalidateQueries({ queryKey: [BOTS_QUERY_KEY] });
+    },
   });
 };

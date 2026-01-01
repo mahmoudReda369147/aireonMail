@@ -12,6 +12,7 @@ import { DraftsPage } from './pages/DraftsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AutomationPage } from './pages/AutomationPage';
 import { ConversationAutomationPage } from './pages/ConversationAutomationPage';
+import { CreateBotPage } from './pages/CreateBotPage';
 import { VeoStudioPage } from './pages/VeoStudioPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -90,7 +91,10 @@ const AppRoutes = () => {
               <Route path="/plans" element={<PlansPage />} />
 
               <Route path="/automation" element={<AutomationPage />} />
+              <Route path="/thread-automation/create-bot" element={<CreateBotPage />} />
+              <Route path="/thread-automation/:id/:botId" element={<ConversationAutomationPage />} />
               <Route path="/thread-automation/:id" element={<ConversationAutomationPage />} />
+              <Route path="/thread-automation/bot/:botId" element={<ConversationAutomationPage />} />
               <Route path="/thread-automation" element={<ConversationAutomationPage />} />
 
               <Route path="/studio" element={<VeoStudioPage />} />
