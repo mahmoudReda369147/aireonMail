@@ -6,7 +6,7 @@ import { Button } from '../components/common/Button';
 import { TextArea } from '../components/common/Input';
 import { Dropdown } from '../components/common/Dropdown';
 import { RichEditor } from '../components/common/RichEditor';
-import { Bot, Zap, Clock, MessageSquare, CheckCircle, PauseCircle, PlayCircle, Sliders, ChevronRight, Activity, Wand2, RefreshCcw, Loader2 } from 'lucide-react';
+import { Bot, Zap, Clock, MessageSquare, CheckCircle, PauseCircle, PlayCircle, Sliders, ChevronRight, Activity, Wand2, RefreshCcw, Loader2, Plus, X } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
 import { useBots, useUpdateBot, useUserTemplates } from '../apis/hooks';
 import { BotData } from '../apis/services';
@@ -48,8 +48,15 @@ export const ConversationAutomationPage: React.FC = () => {
     replayTony: string;
     isautoSummarize: boolean;
     isautoExtractTaskes: boolean;
+    isautoExtractMettengs: boolean;
     userPrompet: string;
+    templete: string;
+    emails: string[];
   } | null>(null);
+
+  // Email input state for editing
+  const [emailInput, setEmailInput] = useState('');
+  const [emailList, setEmailList] = useState<string[]>([]);
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
@@ -67,8 +74,12 @@ export const ConversationAutomationPage: React.FC = () => {
           replayTony: bot.replayTony,
           isautoSummarize: bot.isautoSummarize,
           isautoExtractTaskes: bot.isautoExtractTaskes,
+          isautoExtractMettengs: bot.isautoExtractMettengs,
           userPrompet: bot.userPrompet || '',
+          templete: bot.templete || '',
+          emails: bot.emails || [],
         });
+        setEmailList(bot.emails || []);
       }
     }
   }, [botId, allBots]);
@@ -161,6 +172,58 @@ export const ConversationAutomationPage: React.FC = () => {
     }
   };
 
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+  };
+
+  // Handle add email
+  const handleAddEmail = () => {
+    const trimmedEmail = emailInput.trim();
+
+    if (!trimmedEmail) {
+      showToast('Please enter an email address', 'error');
+      return;
+    }
+
+    if (!validateEmail(trimmedEmail)) {
+      showToast('Please enter a valid email address', 'error');
+      return;
+    }
+
+    if (emailList.includes(trimmedEmail)) {
+      showToast('Email already added', 'error');
+      return;
+    }
+
+    const newEmailList = [...emailList, trimmedEmail];
+    setEmailList(newEmailList);
+    setEmailInput('');
+
+    // Update editable settings
+    if (editableBotSettings) {
+      setEditableBotSettings({
+        ...editableBotSettings,
+        emails: newEmailList,
+      });
+    }
+  };
+
+  // Handle remove email
+  const handleRemoveEmail = (emailToRemove: string) => {
+    const newEmailList = emailList.filter(email => email !== emailToRemove);
+    setEmailList(newEmailList);
+
+    // Update editable settings
+    if (editableBotSettings) {
+      setEditableBotSettings({
+        ...editableBotSettings,
+        emails: newEmailList,
+      });
+    }
+  };
+
   // Update editable bot settings
   const updateBotSetting = <K extends keyof NonNullable<typeof editableBotSettings>>(
     key: K,
@@ -192,8 +255,12 @@ export const ConversationAutomationPage: React.FC = () => {
         replayTony: response.data.replayTony,
         isautoSummarize: response.data.isautoSummarize,
         isautoExtractTaskes: response.data.isautoExtractTaskes,
+        isautoExtractMettengs: response.data.isautoExtractMettengs,
         userPrompet: response.data.userPrompet || '',
+        templete: response.data.templete || '',
+        emails: response.data.emails || [],
       });
+      setEmailList(response.data.emails || []);
 
       showToast('Bot settings saved successfully', 'success');
     } catch (error) {
@@ -210,7 +277,7 @@ export const ConversationAutomationPage: React.FC = () => {
     if (template && editableBotSettings) {
       setEditableBotSettings({
         ...editableBotSettings,
-        userPrompet: template.body || '',
+        templete: template.body || '',
       });
       showToast(`Template "${template.name}" loaded`, 'success');
     }
@@ -429,6 +496,84 @@ export const ConversationAutomationPage: React.FC = () => {
                      {/* Left Column: Rules */}
                      <div className="space-y-6">
 
+                        {/* Basic Info Card */}
+                        <div className="bg-glass border border-glass-border rounded-3xl p-6">
+                           <div className="flex items-center gap-3 mb-6">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                                 <Bot className="w-5 h-5" />
+                              </div>
+                              <div>
+                                 <h3 className="font-bold text-white text-lg">Bot Information</h3>
+                                 <p className="text-xs text-slate-400">Basic configuration</p>
+                              </div>
+                           </div>
+
+                           <div className="space-y-4">
+                              <div>
+                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                                    Bot Name *
+                                 </label>
+                                 <input
+                                    type="text"
+                                    value={selectedBot.botName}
+                                    disabled
+                                    className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-slate-400 cursor-not-allowed"
+                                 />
+                              </div>
+
+                              <div>
+                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                                    Email Addresses *
+                                 </label>
+                                 <div className="flex gap-2">
+                                    <input
+                                       type="email"
+                                       value={emailInput}
+                                       onChange={(e) => setEmailInput(e.target.value)}
+                                       onKeyPress={(e) => {
+                                          if (e.key === 'Enter') {
+                                             e.preventDefault();
+                                             handleAddEmail();
+                                          }
+                                       }}
+                                       placeholder="e.g., support@company.com"
+                                       className="flex-1 px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
+                                    />
+                                    <button
+                                       type="button"
+                                       onClick={handleAddEmail}
+                                       className="px-4 py-3 bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all shadow-lg shadow-fuchsia-500/20 flex items-center gap-2"
+                                    >
+                                       <Plus className="w-4 h-4" />
+                                       Add
+                                    </button>
+                                 </div>
+
+                                 {/* Email List */}
+                                 {emailList.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                       {emailList.map((email, index) => (
+                                          <div
+                                             key={index}
+                                             className="flex items-center justify-between px-4 py-2 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl group hover:bg-fuchsia-500/20 transition-all"
+                                          >
+                                             <span className="text-sm text-white font-medium">{email}</span>
+                                             <button
+                                                type="button"
+                                                onClick={() => handleRemoveEmail(email)}
+                                                className="p-1 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                title="Remove email"
+                                             >
+                                                <X className="w-4 h-4" />
+                                             </button>
+                                          </div>
+                                       ))}
+                                    </div>
+                                 )}
+                              </div>
+                           </div>
+                        </div>
+
                         {/* Auto Reply Card */}
                         <div className="bg-glass border border-glass-border rounded-3xl p-6 relative overflow-hidden group">
                            <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-opacity opacity-50 group-hover:opacity-100"></div>
@@ -448,8 +593,22 @@ export const ConversationAutomationPage: React.FC = () => {
                               </label>
                            </div>
 
+                           {/* User Prompt Textarea */}
+                           <div className="space-y-2 mt-4">
+                              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
+                                 Custom Instructions
+                              </label>
+                              <textarea
+                                 value={editableBotSettings.userPrompet}
+                                 onChange={(e) => updateBotSetting('userPrompet', e.target.value)}
+                                 placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                                 rows={4}
+                                 className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors resize-none"
+                              />
+                           </div>
+
                            {editableBotSettings.isAutoReply && (
-                              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
                                  <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reply Tone</label>
                                     <div className="flex flex-wrap gap-2">
@@ -464,10 +623,6 @@ export const ConversationAutomationPage: React.FC = () => {
                                        ))}
                                     </div>
                                  </div>
-                                 {/* <div className="flex items-center justify-between p-3 bg-surface/50 rounded-xl border border-glass-border">
-                                    <span className="text-sm text-slate-300">Match my writing style</span>
-                                    <input type="checkbox" checked={false} } className="w-4 h-4 accent-fuchsia-500 rounded cursor-pointer" />
-                                 </div> */}
                               </div>
                            )}
                         </div>
@@ -499,20 +654,27 @@ export const ConversationAutomationPage: React.FC = () => {
                                  </div>
                                  <input type="checkbox" checked={editableBotSettings.isautoExtractTaskes} onChange={e => updateBotSetting('isautoExtractTaskes', e.target.checked)} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                               </div>
-                              
+                              <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
+                                 <div>
+                                    <div className="text-sm font-bold text-slate-200">Extract Meetings</div>
+                                    <div className="text-xs text-slate-500">Detect meeting requests and times</div>
+                                 </div>
+                                 <input type="checkbox" checked={editableBotSettings.isautoExtractMettengs} onChange={e => updateBotSetting('isautoExtractMettengs', e.target.checked)} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
+                              </div>
+
                            </div>
                         </div>
                      </div>
 
-                     {/* Right Column: Prompt & Logs */}
+                     {/* Right Column: Template & Logs */}
                      <div className="space-y-6">
 
-                        {/* Custom Prompt */}
-                        <div className="bg-glass border border-glass-border rounded-3xl p-6">
+                        {/* Email Template */}
+                        <div className="bg-glass border border-glass-border rounded-3xl p-6 min-h-[400px]">
                            <div className="flex items-center justify-between mb-4">
                               <div className="flex items-center gap-2">
                                  <Wand2 className="w-5 h-5 text-purple-400" />
-                                 <h3 className="font-bold text-white">Custom Instructions</h3>
+                                 <h3 className="font-bold text-white">Email Template</h3>
                               </div>
                               <Dropdown
                                  value=""
@@ -527,9 +689,9 @@ export const ConversationAutomationPage: React.FC = () => {
                            </div>
                            <div className="relative">
                               <RichEditor
-                                 value={editableBotSettings.userPrompet}
-                                 onChange={html => updateBotSetting('userPrompet', html)}
-                                 placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                                 value={editableBotSettings.templete}
+                                 onChange={html => updateBotSetting('templete', html)}
+                                 placeholder="Create your email template with HTML formatting..."
                                  className="bg-black/20"
                               />
                            </div>
@@ -569,8 +731,12 @@ export const ConversationAutomationPage: React.FC = () => {
                                  replayTony: selectedBot.replayTony,
                                  isautoSummarize: selectedBot.isautoSummarize,
                                  isautoExtractTaskes: selectedBot.isautoExtractTaskes,
+                                 isautoExtractMettengs: selectedBot.isautoExtractMettengs,
                                  userPrompet: selectedBot.userPrompet || '',
+                                 templete: selectedBot.templete || '',
+                                 emails: selectedBot.emails || [],
                               });
+                              setEmailList(selectedBot.emails || []);
                               showToast('Changes discarded', 'info');
                            }}
                            className="px-6"

@@ -554,13 +554,15 @@ export const sendEmailReply = async (data: SendEmailReplyRequest): Promise<SendE
 // Bot interfaces
 export interface BotData {
   id: string;
-  emails: string;
+  emails: string[];
   botName: string;
+  description: string | null;
   userId: string;
   isactive: boolean;
   replayTony: string;
   isAutoReply: boolean;
   userPrompet: string;
+  templete: string | null;
   isautoSummarize: boolean;
   isautoExtractTaskes: boolean;
   isautoExtractMettengs: boolean;
@@ -602,12 +604,13 @@ export const fetchBots = async (page: number = 1, limit: number = 10): Promise<B
 
 // Update Bot interfaces
 export interface UpdateBotRequest {
-  emails?: string;
+  emails?: string[];
   botName?: string;
   isactive?: boolean;
   replayTony?: string;
   isAutoReply?: boolean;
   userPrompet?: string;
+  templete?: string;
   isautoSummarize?: boolean;
   isautoExtractTaskes?: boolean;
   isautoExtractMettengs?: boolean;
@@ -627,12 +630,13 @@ export const updateBot = async (id: string, data: UpdateBotRequest): Promise<Upd
 
 // Create Bot interfaces
 export interface CreateBotRequest {
-  emails: string;
+  emails: string[];
   botName: string;
   isactive?: boolean;
   replayTony?: string;
   isAutoReply?: boolean;
   userPrompet?: string;
+  templete?: string;
   isautoSummarize?: boolean;
   isautoExtractTaskes?: boolean;
   isautoExtractMettengs?: boolean;

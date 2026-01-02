@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { RichEditor } from '../components/common/RichEditor';
-import { Bot, Zap, MessageSquare, Wand2, Loader2, ArrowLeft } from 'lucide-react';
+import { Bot, Zap, MessageSquare, Wand2, Loader2, ArrowLeft, Plus, X } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
 import { useCreateBot } from '../apis/hooks';
 
@@ -13,6 +13,10 @@ export const CreateBotPage: React.FC = () => {
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
+
+  // Email input state
+  const [emailInput, setEmailInput] = useState('');
+  const [emailList, setEmailList] = useState<string[]>([]);
 
   // Create bot form state
   const [newBotData, setNewBotData] = useState({
@@ -25,18 +29,56 @@ export const CreateBotPage: React.FC = () => {
     isautoExtractTaskes: false,
     isautoExtractMettengs: false,
     userPrompet: '',
+    templete: '',
   });
+
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+  };
+
+  // Handle add email
+  const handleAddEmail = () => {
+    const trimmedEmail = emailInput.trim();
+
+    if (!trimmedEmail) {
+      showToast('Please enter an email address', 'error');
+      return;
+    }
+
+    if (!validateEmail(trimmedEmail)) {
+      showToast('Please enter a valid email address', 'error');
+      return;
+    }
+
+    if (emailList.includes(trimmedEmail)) {
+      showToast('Email already added', 'error');
+      return;
+    }
+
+    setEmailList([...emailList, trimmedEmail]);
+    setEmailInput('');
+  };
+
+  // Handle remove email
+  const handleRemoveEmail = (emailToRemove: string) => {
+    setEmailList(emailList.filter(email => email !== emailToRemove));
+  };
 
   // Handle create bot
   const handleCreateBot = async () => {
-    if (!newBotData.botName || !newBotData.emails) {
-      showToast('Please fill in bot name and emails', 'error');
+    if (!newBotData.botName || emailList.length === 0) {
+      showToast('Please fill in bot name and add at least one email', 'error');
       return;
     }
 
     setIsSaving(true);
     try {
-      const response = await createBotMutation.mutateAsync(newBotData);
+      const response = await createBotMutation.mutateAsync({
+        ...newBotData,
+        emails: emailList, // Send as array of strings
+      });
       showToast('Bot created successfully', 'success');
 
       // Navigate to the newly created bot
@@ -105,15 +147,53 @@ export const CreateBotPage: React.FC = () => {
 
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                    Email Address *
+                    Email Addresses *
                   </label>
-                  <input
-                    type="email"
-                    value={newBotData.emails}
-                    onChange={(e) => setNewBotData({ ...newBotData, emails: e.target.value })}
-                    placeholder="e.g., support@company.com"
-                    className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddEmail();
+                        }
+                      }}
+                      placeholder="e.g., support@company.com"
+                      className="flex-1 px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddEmail}
+                      className="px-4 py-3 bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all shadow-lg shadow-fuchsia-500/20 flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add
+                    </button>
+                  </div>
+
+                  {/* Email List */}
+                  {emailList.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {emailList.map((email, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between px-4 py-2 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl group hover:bg-fuchsia-500/20 transition-all"
+                        >
+                          <span className="text-sm text-white font-medium">{email}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEmail(email)}
+                            className="p-1 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                            title="Remove email"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -142,8 +222,22 @@ export const CreateBotPage: React.FC = () => {
                 </label>
               </div>
 
+              {/* User Prompt Textarea */}
+              <div className="space-y-2 mt-4">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
+                  Custom Instructions
+                </label>
+                <textarea
+                  value={newBotData.userPrompet}
+                  onChange={(e) => setNewBotData({ ...newBotData, userPrompet: e.target.value })}
+                  placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                  rows={4}
+                  className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors resize-none"
+                />
+              </div>
+
               {newBotData.isAutoReply && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reply Tone</label>
                     <div className="flex flex-wrap gap-2">
@@ -203,19 +297,19 @@ export const CreateBotPage: React.FC = () => {
           {/* Right Column */}
           <div className="space-y-6">
 
-            {/* Custom Prompt */}
+            {/* Email Template */}
             <div className="bg-glass border border-glass-border rounded-3xl p-6 min-h-[400px]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Wand2 className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-white">Custom Instructions</h3>
+                  <h3 className="font-bold text-white">Email Template</h3>
                 </div>
               </div>
               <div className="relative">
                 <RichEditor
-                  value={newBotData.userPrompet}
-                  onChange={html => setNewBotData({ ...newBotData, userPrompet: html })}
-                  placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                  value={newBotData.templete}
+                  onChange={html => setNewBotData({ ...newBotData, templete: html })}
+                  placeholder="Create your email template with HTML formatting..."
                   className="bg-black/20"
                 />
               </div>
@@ -237,7 +331,7 @@ export const CreateBotPage: React.FC = () => {
             </Button>
             <Button
               onClick={handleCreateBot}
-              disabled={isSaving || !newBotData.botName || !newBotData.emails}
+              disabled={isSaving || !newBotData.botName || emailList.length === 0}
               className="px-8 bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white shadow-lg shadow-fuchsia-500/20"
             >
               {isSaving ? (
