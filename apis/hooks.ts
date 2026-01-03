@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -22,6 +22,9 @@ export const UPDATE_TEMPLATE_MUTATION_KEY = 'update-template';
 
 // React Query key for delete template
 export const DELETE_TEMPLATE_MUTATION_KEY = 'delete-template';
+
+// React Query key for delete email
+export const DELETE_EMAIL_MUTATION_KEY = 'delete-email';
 
 // React Query key for Gmail send
 export const GMAIL_SEND_MUTATION_KEY = 'gmail-send';
@@ -115,6 +118,20 @@ export const useDeleteTemplate = () => {
     mutationFn: (id: string) => deleteTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [USER_TEMPLATES_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for deleting Gmail email
+export const useDeleteGmailEmail = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [DELETE_EMAIL_MUTATION_KEY],
+    mutationFn: (id: string) => deleteGmailEmail(id),
+    onSuccess: () => {
+      // Invalidate and refetch Gmail emails after deleting
+      queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
     },
   });
 };

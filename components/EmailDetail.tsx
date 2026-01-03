@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Email, Task } from '../types';
-import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, Loader2, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, Loader2, ChevronLeft, ListTodo } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './common/Button';
 import { RichEditor } from './common/RichEditor'; // Import the new editor
 import { Spinner } from './common/Spinner';
+import { TaskModal } from './TaskModal';
 import { generateReply, editImage, analyzeActionItems, improveDraft, getSmartInboxAnalysis } from '../services/geminiService';
 import { useToast } from './common/Toast';
 import { useAppContext } from '../contexts/AppContext';
-import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply } from '../apis/hooks';
+import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply, useDeleteGmailEmail } from '../apis/hooks';
 import { CalendarTaskData, GmailEmail, TaskData } from '../apis/services';
 import { formatWhatsAppDate } from '../utils/dateFormat';
 
@@ -26,6 +27,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
   const sendEmailReplyMutation = useSendEmailReply();
+  const deleteGmailEmailMutation = useDeleteGmailEmail();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,6 +81,13 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     priority: 'medium' as 'low' | 'medium' | 'high'
   });
 
+  // More Actions Dropdown State
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const moreActionsRef = useRef<HTMLDivElement>(null);
+
+  // Task Modal State
+  const [showTaskModal, setShowTaskModal] = useState(false);
+
   // Reset state when email changes
   useEffect(() => {
     setReplyHtml('');
@@ -92,7 +101,25 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     setAiSummary(null); // Reset AI summary for new email
     setAiPriority(null); // Reset AI priority for new email
     setIsAnalyzingSummary(false); // Reset AI summary analyzing state
+    setShowMoreActions(false); // Reset more actions dropdown
   }, [email.id]);
+
+  // Close more actions dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreActionsRef.current && !moreActionsRef.current.contains(event.target as Node)) {
+        setShowMoreActions(false);
+      }
+    };
+
+    if (showMoreActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreActions]);
 
   // Load AI summary and calendar task from fetched email data or generate new one
   useEffect(() => {
@@ -144,10 +171,15 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     requestConfirm({
         title: "Delete Email",
         message: "Are you sure you want to move this conversation to Trash?",
-        onConfirm: () => {
-            deleteEmail(email.id);
-            showToast("Email deleted", "info");
-            navigate(-1);
+        onConfirm: async () => {
+            try {
+                await deleteGmailEmailMutation.mutateAsync(email.id);
+                showToast("Email deleted successfully", "success");
+                navigate(-1);
+            } catch (error) {
+                console.error("Failed to delete email", error);
+                showToast("Failed to delete email", "error");
+            }
         },
         variant: "danger"
     });
@@ -310,6 +342,29 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     }
   };
 
+  const handleCreateTaskFromModal = async (taskData: {
+    task: string;
+    taskDate: string;
+    priority: 'low' | 'medium' | 'high';
+    gmailId?: string;
+  }) => {
+    if (!fullEmailData) return;
+
+    try {
+      await createTaskMutation.mutateAsync({
+        task: taskData.task,
+        taskDate: taskData.taskDate || null,
+        isDoneTask: false,
+        priority: taskData.priority,
+        gmailId: taskData.gmailId || fullEmailData.id
+      });
+      showToast("Task created successfully", "success");
+    } catch (error) {
+      console.error("Failed to create task", error);
+      showToast("Failed to create task", "error");
+    }
+  };
+
   const handleEditAttachment = async () => {
     if (!editingImage || !imagePrompt) return;
     try {
@@ -439,17 +494,40 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 <Button variant="secondary" onClick={handleAnalyzeActions} isLoading={isAnalyzing} icon={Sparkles}>
                     Smart Actions
                 </Button>
-                <Button 
-                    variant="secondary" 
-                    onClick={() => setShowAi(!showAi)} 
-                    isLoading={isGenerating} 
+                <Button
+                    variant="secondary"
+                    onClick={() => setShowAi(!showAi)}
+                    isLoading={isGenerating}
                     icon={Sparkles}
                     className={`transition-all ${showAi ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.4)]' : 'bg-fuchsia-500/10 border-fuchsia-500/50 text-fuchsia-100 hover:bg-fuchsia-500/20'}`}
                 >
                     {showAi ? 'Close Assistant' : 'AI Reply'}
                 </Button>
                 <Button variant="icon" icon={Trash2} onClick={handleDelete} />
-                <Button variant="icon" icon={MoreVertical} />
+
+                {/* More Actions Dropdown */}
+                <div className="relative" ref={moreActionsRef}>
+                    <Button
+                        variant="icon"
+                        icon={MoreVertical}
+                        onClick={() => setShowMoreActions(!showMoreActions)}
+                    />
+
+                    {showMoreActions && (
+                        <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-glass-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <button
+                                onClick={() => {
+                                    setShowTaskModal(true);
+                                    setShowMoreActions(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-purple-500/10 transition-colors border-b border-glass-border"
+                            >
+                                <ListTodo className="w-4 h-4 text-purple-400" />
+                                <span className="text-sm font-medium">Add Task</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -1133,6 +1211,15 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
         {/* Loading Popup */}
         {(createTaskMutation.isPending || updateTaskMutation.isPending || deleteTaskMutation.isPending) && <Spinner fullScreen />}
+
+        {/* Task Modal */}
+        <TaskModal
+          isOpen={showTaskModal}
+          onClose={() => setShowTaskModal(false)}
+          onSubmit={handleCreateTaskFromModal}
+          defaultGmailId={email.id}
+          showGmailIdField={false}
+        />
     </div>
   );
 };

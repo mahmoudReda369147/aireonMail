@@ -209,6 +209,18 @@ export const deleteTemplate = async (id: string): Promise<DeleteTemplateResponse
   return response.data;
 };
 
+// Delete Email interfaces
+export interface DeleteGmailEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+// Delete Email service function
+export const deleteGmailEmail = async (id: string): Promise<DeleteGmailEmailResponse> => {
+  const response = await del<DeleteGmailEmailResponse>(`/gmail/emails/${id}`);
+  return response.data;
+};
+
 // Convert Gmail email to app Email format
 export const mapGmailEmailToEmail = (gmailEmail: GmailEmail): import('../types').Email => {
   // Extract sender name from "Name <email>" format or use the full string
