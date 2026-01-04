@@ -9,6 +9,7 @@ import { InboxPage } from './pages/InboxPage';
 import { SmartInboxPage } from './pages/SmartInboxPage';
 import { SentPage } from './pages/SentPage';
 import { DraftsPage } from './pages/DraftsPage';
+import { ChatsPage } from './pages/ChatsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AutomationPage } from './pages/AutomationPage';
 import { ConversationAutomationPage } from './pages/ConversationAutomationPage';
@@ -79,6 +80,9 @@ const AppRoutes = () => {
 
               <Route path="/drafts/:id" element={<DraftsPage />} />
               <Route path="/drafts" element={<DraftsPage />} />
+
+              <Route path="/chats/:id" element={<ChatsPage />} />
+              <Route path="/chats" element={<ChatsPage />} />
 
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/templates/editor" element={<TemplateEditorPage />} />

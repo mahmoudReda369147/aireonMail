@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Inbox, Send, FileText, Users, PlayCircle, CornerUpLeft, Sparkles, RefreshCw, Hexagon, X, Settings, Bot, PenSquare, LayoutGrid, CreditCard, LayoutTemplate, CheckSquare, Calendar } from 'lucide-react';
+import { Inbox, Send, FileText, Users, PlayCircle, CornerUpLeft, Sparkles, RefreshCw, Hexagon, X, Settings, Bot, PenSquare, LayoutGrid, CreditCard, LayoutTemplate, CheckSquare, Calendar, MessageSquare } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
 
 interface SidebarProps {
@@ -72,7 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
           <NavItem to="/inbox" icon={Inbox} label={t('menu.inbox')} count={2} />
           {/* <NavItem to="/smart-inbox" icon={Sparkles} label={t('menu.smart_inbox')} /> */}
           <NavItem to="/sent" icon={Send} label={t('menu.sent')} />
-          {/* <NavItem to="/drafts" icon={FileText} label={t('menu.drafts')} /> */}
+          <NavItem to="/drafts" icon={FileText} label={t('menu.drafts')} />
+          <NavItem to="/chats" icon={MessageSquare} label={t('menu.chats')} />
           <NavItem to="/templates" icon={LayoutTemplate} label={t('menu.templates')} />
           <NavItem to="/tasks" icon={CheckSquare} label={t('menu.tasks')} />
           <NavItem to="/calendar" icon={Calendar} label={t('menu.calendar')} />

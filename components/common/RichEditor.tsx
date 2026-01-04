@@ -1,17 +1,59 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { 
-  Bold, Italic, Underline, Strikethrough, Eraser,
-  List, ListOrdered, 
-  AlignLeft, AlignCenter, AlignRight,
-  Link as LinkIcon, Quote, Code, 
-  Heading1, Heading2, 
-  Undo, Redo,
-  Paperclip,
-  Check, X, Image as ImageIcon, Trash2, Maximize2,
-  Type, Highlighter
+import React from 'react';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import { Underline } from '@tiptap/extension-underline';
+import { Link } from '@tiptap/extension-link';
+import { TextAlign } from '@tiptap/extension-text-align';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Image } from '@tiptap/extension-image';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { FontFamily } from '@tiptap/extension-font-family';
+import { all, createLowlight } from 'lowlight';
+import type { Editor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import {
+  Bold, Italic, Strikethrough, Code, Underline as UnderlineIcon,
+  List, ListOrdered,
+  Heading1, Heading2, Heading3, Heading4, Heading5, Heading6,
+  Quote, Undo, Redo,
+  Minus, CornerDownLeft, Link2, Unlink,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Palette, Highlighter, ImagePlus, CodeSquare, Paintbrush, Type
 } from 'lucide-react';
-import { Button } from './Button'; 
-import { useAppContext } from '../../contexts/AppContext';
+import './RichEditor.css';
+
+const lowlight = createLowlight(all);
+
+const extensions = [
+  TextStyle,
+  Color,
+  Underline,
+  FontFamily,
+  Link.configure({
+    openOnClick: false,
+    HTMLAttributes: {
+      class: 'text-cyan-400 underline hover:text-cyan-300 cursor-pointer',
+    },
+  }),
+  TextAlign.configure({
+    types: ['heading', 'paragraph'],
+  }),
+  Highlight.configure({
+    multicolor: true,
+  }),
+  Image.configure({
+    inline: true,
+    allowBase64: true,
+  }),
+  StarterKit.configure({
+    codeBlock: false, // Disable default code block
+  }),
+  CodeBlockLowlight.configure({
+    lowlight,
+    defaultLanguage: 'javascript',
+  }),
+];
 
 interface RichEditorProps {
   value: string;
@@ -20,216 +62,95 @@ interface RichEditorProps {
   className?: string;
 }
 
-export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange, placeholder, className = '' }) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textColorRef = useRef<HTMLInputElement>(null);
-  const bgColorRef = useRef<HTMLInputElement>(null);
-  
-  // State for editor interaction
-  const [isFocused, setIsFocused] = useState(false);
-  
-  // State for Link Management
-  const [showLinkInput, setShowLinkInput] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('');
-  const [savedRange, setSavedRange] = useState<Range | null>(null);
+interface MenuBarProps {
+  editor: Editor;
+}
 
-  // State for Image Management
-  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
-  const [isResizing, setIsResizing] = useState(false);
+function MenuBar({ editor }: MenuBarProps) {
+  const [showColorPicker, setShowColorPicker] = React.useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = React.useState(false);
+  const [showBgColorPicker, setShowBgColorPicker] = React.useState(false);
+  const [showFontPicker, setShowFontPicker] = React.useState(false);
+  const [editorBgColor, setEditorBgColor] = React.useState('#0F1020');
+  const [linkUrl, setLinkUrl] = React.useState('');
+  const [showLinkInput, setShowLinkInput] = React.useState(false);
 
-  // Confirmation Context
-  const { requestConfirm } = useAppContext();
+  const editorState = useEditorState({
+    editor,
+    selector: ctx => {
+      return {
+        isBold: ctx.editor.isActive('bold') ?? false,
+        canBold: ctx.editor.can().chain().toggleBold().run() ?? false,
+        isItalic: ctx.editor.isActive('italic') ?? false,
+        canItalic: ctx.editor.can().chain().toggleItalic().run() ?? false,
+        isStrike: ctx.editor.isActive('strike') ?? false,
+        canStrike: ctx.editor.can().chain().toggleStrike().run() ?? false,
+        isUnderline: ctx.editor.isActive('underline') ?? false,
+        canUnderline: ctx.editor.can().chain().toggleUnderline().run() ?? false,
+        isCode: ctx.editor.isActive('code') ?? false,
+        canCode: ctx.editor.can().chain().toggleCode().run() ?? false,
+        canClearMarks: ctx.editor.can().chain().unsetAllMarks().run() ?? false,
+        isParagraph: ctx.editor.isActive('paragraph') ?? false,
+        isHeading1: ctx.editor.isActive('heading', { level: 1 }) ?? false,
+        isHeading2: ctx.editor.isActive('heading', { level: 2 }) ?? false,
+        isHeading3: ctx.editor.isActive('heading', { level: 3 }) ?? false,
+        isHeading4: ctx.editor.isActive('heading', { level: 4 }) ?? false,
+        isHeading5: ctx.editor.isActive('heading', { level: 5 }) ?? false,
+        isHeading6: ctx.editor.isActive('heading', { level: 6 }) ?? false,
+        isBulletList: ctx.editor.isActive('bulletList') ?? false,
+        isOrderedList: ctx.editor.isActive('orderedList') ?? false,
+        isCodeBlock: ctx.editor.isActive('codeBlock') ?? false,
+        isBlockquote: ctx.editor.isActive('blockquote') ?? false,
+        isLink: ctx.editor.isActive('link') ?? false,
+        isAlignLeft: ctx.editor.isActive({ textAlign: 'left' }) ?? false,
+        isAlignCenter: ctx.editor.isActive({ textAlign: 'center' }) ?? false,
+        isAlignRight: ctx.editor.isActive({ textAlign: 'right' }) ?? false,
+        isAlignJustify: ctx.editor.isActive({ textAlign: 'justify' }) ?? false,
+        isHighlight: ctx.editor.isActive('highlight') ?? false,
+        canUndo: ctx.editor.can().chain().undo().run() ?? false,
+        canRedo: ctx.editor.can().chain().redo().run() ?? false,
+      };
+    },
+  });
 
-  // Sync external value changes safely
-  useEffect(() => {
-    if (editorRef.current && value !== editorRef.current.innerHTML) {
-         if (editorRef.current.innerHTML === '<br>' && !value) return;
-         editorRef.current.innerHTML = value;
-    }
-  }, [value]);
-
-  // Handle emitting changes
-  const handleInput = () => {
-    if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
-      onChange(html === '<br>' ? '' : html);
-    }
-  };
-
-  // --- Core Editing Commands ---
-  const execCommand = (command: string, value: string | undefined = undefined) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-    handleInput();
-  };
-
-  // --- Link Handling ---
-  const saveSelection = () => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      setSavedRange(sel.getRangeAt(0));
-    }
-  };
-
-  const restoreSelection = () => {
-    const sel = window.getSelection();
-    if (sel && savedRange) {
-      sel.removeAllRanges();
-      sel.addRange(savedRange);
-    }
-  };
-
-  const handleLinkBtnClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    saveSelection();
-    setShowLinkInput(true);
-    setLinkUrl('');
-  };
-
-  const applyLink = () => {
-    restoreSelection();
+  const addLink = () => {
     if (linkUrl) {
-      execCommand('createLink', linkUrl);
-    }
-    setShowLinkInput(false);
-    setLinkUrl('');
-  };
-
-  // --- Image Handling ---
-  
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && editorRef.current) {
-      const fileSize = (file.size / 1024).toFixed(1) + ' KB';
-      const isImage = file.type.startsWith('image/');
-      
-      let attachmentHtml = '';
-      
-      if (isImage) {
-          const url = URL.createObjectURL(file);
-          // Default styling for new images
-          attachmentHtml = `<img src="${url}" alt="${file.name}" style="max-width: 100%; width: 300px; border-radius: 8px; cursor: pointer;" />`;
-      } else {
-          attachmentHtml = `
-            <div contenteditable="false" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 12px; margin: 4px 0; font-family: sans-serif; user-select: none;">
-               <span style="font-size: 18px;">📎</span>
-               <div>
-                 <div style="font-size: 13px; font-weight: 600; color: #fff;">${file.name}</div>
-                 <div style="font-size: 10px; color: #ccc;">${fileSize} • ${file.type || 'Document'}</div>
-               </div>
-            </div>&nbsp;
-          `;
-      }
-      
-      editorRef.current.focus();
-      // Insert HTML at cursor
-      document.execCommand('insertHTML', false, attachmentHtml);
-      document.execCommand('insertHTML', false, '<br>'); // Add break line
-      handleInput();
-      
-      e.target.value = ''; // Reset input
+      editor.chain().focus().setLink({ href: linkUrl }).run();
+      setLinkUrl('');
+      setShowLinkInput(false);
     }
   };
 
-  // Detect clicks on images to select them
-  const handleEditorClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'IMG') {
-        setSelectedImage(target as HTMLImageElement);
-    } else {
-        // Deselect if clicking elsewhere (unless clicking resize controls)
-        setSelectedImage(null);
+  const addImage = () => {
+    const url = window.prompt('Enter image URL:');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
     }
   };
 
-  // --- Image Resize & Align Logic ---
-  
-  const updateImageStyle = (styles: Partial<CSSStyleDeclaration>) => {
-    if (selectedImage) {
-        Object.assign(selectedImage.style, styles);
-        handleInput();
-    }
-  };
-
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizing(true);
-    
-    if (!selectedImage) return;
-
-    const startX = e.clientX;
-    const startWidth = selectedImage.clientWidth;
-    
-    const onMouseMove = (moveEvent: MouseEvent) => {
-        const currentX = moveEvent.clientX;
-        const diff = currentX - startX;
-        const newWidth = Math.max(50, startWidth + diff); // Min width 50px
-        selectedImage.style.width = `${newWidth}px`;
-        // Auto height
-        selectedImage.style.height = 'auto'; 
-    };
-
-    const onMouseUp = () => {
-        setIsResizing(false);
-        handleInput(); // Save state
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
-
-  const alignImage = (align: 'left' | 'center' | 'right') => {
-      if (!selectedImage) return;
-      selectedImage.style.display = 'block';
-      if (align === 'left') {
-          selectedImage.style.marginLeft = '0';
-          selectedImage.style.marginRight = 'auto';
-      } else if (align === 'center') {
-          selectedImage.style.marginLeft = 'auto';
-          selectedImage.style.marginRight = 'auto';
-      } else if (align === 'right') {
-          selectedImage.style.marginLeft = 'auto';
-          selectedImage.style.marginRight = '0';
-      }
-      handleInput();
-  };
-
-  const deleteSelectedImage = () => {
-      requestConfirm({
-          title: "Remove Image",
-          message: "Are you sure you want to remove this image from the editor?",
-          onConfirm: () => {
-            if (selectedImage) {
-                selectedImage.remove();
-                setSelectedImage(null);
-                handleInput();
-            }
-          },
-          variant: 'danger'
-      });
-  };
-
-
-  // --- UI Components ---
-
-  const ToolbarButton = ({ icon: Icon, command, arg, title, isActive, onClick }: any) => (
+  const ToolbarButton = ({
+    icon: Icon,
+    onClick,
+    disabled,
+    isActive,
+    title
+  }: {
+    icon: any;
+    onClick: () => void;
+    disabled?: boolean;
+    isActive?: boolean;
+    title: string;
+  }) => (
     <button
-      title={title}
       type="button"
-      onMouseDown={(e) => {
-        e.preventDefault(); // Prevent losing focus from editor
-        if (onClick) onClick(e);
-        else execCommand(command, arg);
-      }}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
       className={`p-1.5 rounded-lg transition-colors ${
-        isActive 
-            ? 'text-fuchsia-400 bg-fuchsia-500/10' 
-            : 'text-slate-400 hover:text-white hover:bg-white/10'
-      }`}
+        isActive
+          ? 'text-purple-400 bg-purple-500/10'
+          : 'text-slate-400 hover:text-white hover:bg-white/10'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <Icon className="w-4 h-4" />
     </button>
@@ -237,142 +158,372 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange, placeho
 
   const Divider = () => <div className="w-px h-4 bg-glass-border mx-1 self-center" />;
 
-  return (
-    <div className={`flex flex-col relative bg-glass backdrop-blur-md border border-glass-border rounded-2xl transition-all group shadow-xl shadow-black/5 ${isFocused ? 'ring-1 ring-fuchsia-500/50 border-fuchsia-500/50' : ''} ${className}`}>
-      
-      {/* Hidden Color Inputs */}
-      <input 
-        type="color" 
-        ref={textColorRef} 
-        className="invisible absolute w-0 h-0 opacity-0" 
-        onChange={(e) => execCommand('foreColor', e.target.value)}
-        title="Text Color"
-      />
-      <input 
-        type="color" 
-        ref={bgColorRef} 
-        className="invisible absolute w-0 h-0 opacity-0" 
-        onChange={(e) => execCommand('hiliteColor', e.target.value)}
-        title="Background Color"
-      />
+  const textColors = ['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff'];
+  const highlightColors = ['#fef08a', '#fed7aa', '#fecaca', '#ddd6fe', '#bfdbfe', '#bbf7d0', '#fbcfe8'];
+  const bgColors = ['#0F1020', '#1a1a2e', '#16213e', '#0f3460', '#533483', '#2d4059', '#1f4037', '#000000', '#1e1e1e', '#2c3e50', '#34495e', '#ffffff'];
+  const fontFamilies = [
+    { name: 'Arial', value: 'Arial, sans-serif' },
+    { name: 'Times New Roman', value: 'Times New Roman, serif' },
+    { name: 'Georgia', value: 'Georgia, serif' },
+    { name: 'Courier New', value: 'Courier New, monospace' },
+    { name: 'Verdana', value: 'Verdana, sans-serif' },
+    { name: 'Comic Sans', value: 'Comic Sans MS, cursive' },
+    { name: 'Impact', value: 'Impact, fantasy' },
+    { name: 'Trebuchet', value: 'Trebuchet MS, sans-serif' },
+    { name: 'Palatino', value: 'Palatino, serif' },
+    { name: 'Garamond', value: 'Garamond, serif' },
+  ];
 
-      {/* --- Main Toolbar --- */}
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-glass-border bg-white/5 rounded-t-2xl z-20 relative">
-        <ToolbarButton icon={Undo} command="undo" title="Undo" />
-        <ToolbarButton icon={Redo} command="redo" title="Redo" />
-        <Divider />
-        <ToolbarButton icon={Heading1} command="formatBlock" arg="H1" title="Heading 1" />
-        <ToolbarButton icon={Heading2} command="formatBlock" arg="H2" title="Heading 2" />
-        <Divider />
-        <ToolbarButton icon={Bold} command="bold" title="Bold" />
-        <ToolbarButton icon={Italic} command="italic" title="Italic" />
-        <ToolbarButton icon={Underline} command="underline" title="Underline" />
-        <ToolbarButton icon={Strikethrough} command="strikeThrough" title="Strikethrough" />
-        <ToolbarButton icon={Eraser} command="removeFormat" title="Clear Formatting" />
-        <Divider />
-        <ToolbarButton icon={Type} title="Text Color" onClick={() => textColorRef.current?.click()} />
-        <ToolbarButton icon={Highlighter} title="Highlight Color" onClick={() => bgColorRef.current?.click()} />
-        <Divider />
-        <ToolbarButton icon={AlignLeft} command="justifyLeft" title="Align Left" />
-        <ToolbarButton icon={AlignCenter} command="justifyCenter" title="Align Center" />
-        <ToolbarButton icon={AlignRight} command="justifyRight" title="Align Right" />
-        <Divider />
-        <ToolbarButton icon={List} command="insertUnorderedList" title="Bullet List" />
-        <ToolbarButton icon={ListOrdered} command="insertOrderedList" title="Numbered List" />
-        <Divider />
-        <ToolbarButton icon={LinkIcon} onClick={handleLinkBtnClick} title="Insert Link" isActive={showLinkInput} />
-        <ToolbarButton icon={Quote} command="formatBlock" arg="blockquote" title="Quote" />
-        <ToolbarButton icon={Code} command="formatBlock" arg="pre" title="Code Block" />
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-glass-border text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors ml-2"
-        >
-            <Paperclip className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Attach</span>
-        </button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            onChange={handleFileSelect}
-            multiple
+  return (
+    <div className="flex flex-wrap items-center gap-1 p-2 border-b border-glass-border bg-white/5 rounded-t-2xl">
+      <ToolbarButton
+        icon={Undo}
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editorState.canUndo}
+        title="Undo"
+      />
+      <ToolbarButton
+        icon={Redo}
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editorState.canRedo}
+        title="Redo"
+      />
+      <Divider />
+      <ToolbarButton
+        icon={Heading1}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        isActive={editorState.isHeading1}
+        title="Heading 1"
+      />
+      <ToolbarButton
+        icon={Heading2}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        isActive={editorState.isHeading2}
+        title="Heading 2"
+      />
+      <ToolbarButton
+        icon={Heading3}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        isActive={editorState.isHeading3}
+        title="Heading 3"
+      />
+      <Divider />
+      <ToolbarButton
+        icon={Bold}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editorState.canBold}
+        isActive={editorState.isBold}
+        title="Bold"
+      />
+      <ToolbarButton
+        icon={Italic}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editorState.canItalic}
+        isActive={editorState.isItalic}
+        title="Italic"
+      />
+      <ToolbarButton
+        icon={UnderlineIcon}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        disabled={!editorState.canUnderline}
+        isActive={editorState.isUnderline}
+        title="Underline"
+      />
+      <ToolbarButton
+        icon={Strikethrough}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        disabled={!editorState.canStrike}
+        isActive={editorState.isStrike}
+        title="Strikethrough"
+      />
+      <ToolbarButton
+        icon={Code}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        disabled={!editorState.canCode}
+        isActive={editorState.isCode}
+        title="Inline Code"
+      />
+      <Divider />
+
+      {/* Text Color */}
+      <div className="relative">
+        <ToolbarButton
+          icon={Palette}
+          onClick={() => setShowColorPicker(!showColorPicker)}
+          title="Text Color"
         />
+        {showColorPicker && (
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-glass-border rounded-lg shadow-lg z-10 flex gap-1">
+            {textColors.map((color) => (
+              <button
+                key={color}
+                onClick={() => {
+                  editor.chain().focus().setColor(color).run();
+                  setShowColorPicker(false);
+                }}
+                className="w-6 h-6 rounded border border-glass-border hover:scale-110 transition-transform"
+                style={{ backgroundColor: color }}
+                title={color}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* --- Link Input Popover --- */}
-      {showLinkInput && (
-        <div className="absolute top-12 left-4 z-30 p-2 bg-[#1A1B2E] border border-glass-border rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 w-72">
-           <input 
-              autoFocus
+      {/* Highlight Color */}
+      <div className="relative">
+        <ToolbarButton
+          icon={Highlighter}
+          onClick={() => setShowHighlightPicker(!showHighlightPicker)}
+          isActive={editorState.isHighlight}
+          title="Highlight"
+        />
+        {showHighlightPicker && (
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-glass-border rounded-lg shadow-lg z-10 flex gap-1">
+            {highlightColors.map((color) => (
+              <button
+                key={color}
+                onClick={() => {
+                  editor.chain().focus().toggleHighlight({ color }).run();
+                  setShowHighlightPicker(false);
+                }}
+                className="w-6 h-6 rounded border border-glass-border hover:scale-110 transition-transform"
+                style={{ backgroundColor: color }}
+                title={color}
+              />
+            ))}
+            <button
+              onClick={() => {
+                editor.chain().focus().unsetHighlight().run();
+                setShowHighlightPicker(false);
+              }}
+              className="w-6 h-6 rounded border border-glass-border hover:scale-110 transition-transform bg-black/20 text-white text-xs flex items-center justify-center"
+              title="Remove highlight"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Page Background Color */}
+      <div className="relative">
+        <ToolbarButton
+          icon={Paintbrush}
+          onClick={() => setShowBgColorPicker(!showBgColorPicker)}
+          title="Page Background"
+        />
+        {showBgColorPicker && (
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-glass-border rounded-lg shadow-lg z-10 grid grid-cols-4 gap-1">
+            {bgColors.map((color) => (
+              <button
+                key={color}
+                onClick={() => {
+                  setEditorBgColor(color);
+                  const editorElement = editor.view.dom.closest('.tiptap-editor');
+                  if (editorElement) {
+                    (editorElement as HTMLElement).style.backgroundColor = color;
+                  }
+                  setShowBgColorPicker(false);
+                }}
+                className="w-8 h-8 rounded border border-glass-border hover:scale-110 transition-transform"
+                style={{ backgroundColor: color }}
+                title={color}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Font Family */}
+      <div className="relative">
+        <ToolbarButton
+          icon={Type}
+          onClick={() => setShowFontPicker(!showFontPicker)}
+          title="Font Family"
+        />
+        {showFontPicker && (
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-glass-border rounded-lg shadow-lg z-10 w-48 max-h-64 overflow-y-auto custom-scrollbar">
+            {fontFamilies.map((font) => (
+              <button
+                key={font.value}
+                onClick={() => {
+                  editor.chain().focus().setFontFamily(font.value).run();
+                  setShowFontPicker(false);
+                }}
+                className="w-full text-left px-3 py-2 rounded text-sm text-white hover:bg-purple-500/20 transition-colors"
+                style={{ fontFamily: font.value }}
+              >
+                {font.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Text Alignment */}
+      <ToolbarButton
+        icon={AlignLeft}
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        isActive={editorState.isAlignLeft}
+        title="Align Left"
+      />
+      <ToolbarButton
+        icon={AlignCenter}
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        isActive={editorState.isAlignCenter}
+        title="Align Center"
+      />
+      <ToolbarButton
+        icon={AlignRight}
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        isActive={editorState.isAlignRight}
+        title="Align Right"
+      />
+      <ToolbarButton
+        icon={AlignJustify}
+        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+        isActive={editorState.isAlignJustify}
+        title="Justify"
+      />
+
+      <Divider />
+
+      <ToolbarButton
+        icon={List}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        isActive={editorState.isBulletList}
+        title="Bullet List"
+      />
+      <ToolbarButton
+        icon={ListOrdered}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        isActive={editorState.isOrderedList}
+        title="Numbered List"
+      />
+      <Divider />
+
+      {/* Link */}
+      <div className="relative">
+        {editorState.isLink ? (
+          <ToolbarButton
+            icon={Unlink}
+            onClick={() => editor.chain().focus().unsetLink().run()}
+            isActive={true}
+            title="Remove Link"
+          />
+        ) : (
+          <ToolbarButton
+            icon={Link2}
+            onClick={() => setShowLinkInput(!showLinkInput)}
+            title="Add Link"
+          />
+        )}
+        {showLinkInput && (
+          <div className="absolute top-full left-0 mt-1 p-2 bg-surface border border-glass-border rounded-lg shadow-lg z-10 flex gap-2">
+            <input
+              type="url"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="https://example.com"
-              className="flex-1 bg-black/20 border border-glass-border rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-fuchsia-500"
-              onKeyDown={(e) => e.key === 'Enter' && applyLink()}
-           />
-           <button onClick={applyLink} className="p-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 rounded-lg text-white"><Check className="w-3 h-3" /></button>
-           <button onClick={() => setShowLinkInput(false)} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400"><X className="w-3 h-3" /></button>
-        </div>
-      )}
+              className="px-2 py-1 bg-black/20 border border-glass-border rounded text-white text-sm w-48 focus:outline-none focus:border-purple-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addLink();
+                if (e.key === 'Escape') setShowLinkInput(false);
+              }}
+            />
+            <button
+              onClick={addLink}
+              className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded text-sm"
+            >
+              Add
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* --- Editable Area --- */}
-      <div className="relative flex-1 bg-transparent rounded-b-2xl overflow-hidden min-h-[200px]">
+      {/* Image */}
+      <ToolbarButton
+        icon={ImagePlus}
+        onClick={addImage}
+        title="Insert Image"
+      />
+
+      {/* Code Block */}
+      <ToolbarButton
+        icon={CodeSquare}
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        isActive={editorState.isCodeBlock}
+        title="Code Block"
+      />
+
+      <Divider />
+
+      <ToolbarButton
+        icon={Quote}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        isActive={editorState.isBlockquote}
+        title="Quote"
+      />
+      <ToolbarButton
+        icon={Minus}
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        title="Horizontal Rule"
+      />
+      <ToolbarButton
+        icon={CornerDownLeft}
+        onClick={() => editor.chain().focus().setHardBreak().run()}
+        title="Hard Break"
+      />
+    </div>
+  );
+}
+
+export const RichEditor: React.FC<RichEditorProps> = ({
+  value,
+  onChange,
+  placeholder = 'Start typing...',
+  className = ''
+}) => {
+  const editor = useEditor({
+    extensions,
+    content: value,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-invert prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
+      },
+    },
+  });
+
+  // Update editor content when value changes externally
+  React.useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value);
+    }
+  }, [editor, value]);
+
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className={`flex flex-col bg-glass backdrop-blur-md border border-glass-border rounded-2xl overflow-hidden ${className}`}>
+      <MenuBar editor={editor} />
+      <div className="relative">
         {!value && (
-            <div className="absolute top-4 left-4 text-slate-600 pointer-events-none select-none text-sm font-light z-0">
-                {placeholder || "Type your message..."}
-            </div>
+          <div className="absolute top-4 left-4 text-slate-500 pointer-events-none select-none text-sm">
+            {placeholder}
+          </div>
         )}
-        
-        <div
-            ref={editorRef}
-            contentEditable
-            onInput={handleInput}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onMouseDown={handleEditorClick}
-            className="w-full h-full p-4 text-sm text-white focus:outline-none prose prose-invert prose-sm max-w-none 
-            [&_blockquote]:border-l-4 [&_blockquote]:border-fuchsia-500 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:bg-white/5 [&_blockquote]:py-1
-            [&_pre]:bg-black/40 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:font-mono [&_pre]:text-xs
-            [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:text-white
-            [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:text-white
-            [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
-            [&_a]:text-cyan-400 [&_a]:underline
-            overflow-y-auto custom-scrollbar"
-            style={{ minHeight: '200px' }}
+        <EditorContent
+          editor={editor}
+          className="tiptap-editor text-white text-sm overflow-y-auto custom-scrollbar"
         />
-
-        {/* --- Image Selection Overlay --- */}
-        {selectedImage && (
-             <div 
-                className="absolute pointer-events-none"
-                style={{
-                    top: selectedImage.offsetTop,
-                    left: selectedImage.offsetLeft,
-                    width: selectedImage.clientWidth,
-                    height: selectedImage.clientHeight,
-                    border: '2px solid #d946ef',
-                    boxShadow: '0 0 10px rgba(217, 70, 239, 0.3)',
-                    zIndex: 10
-                }}
-             >
-                {/* Image Toolbar */}
-                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1A1B2E] border border-glass-border rounded-lg shadow-xl flex gap-1 p-1 pointer-events-auto">
-                    <button onClick={() => alignImage('left')} className="p-1.5 hover:bg-white/10 rounded text-slate-300" title="Align Left"><AlignLeft className="w-4 h-4" /></button>
-                    <button onClick={() => alignImage('center')} className="p-1.5 hover:bg-white/10 rounded text-slate-300" title="Align Center"><AlignCenter className="w-4 h-4" /></button>
-                    <button onClick={() => alignImage('right')} className="p-1.5 hover:bg-white/10 rounded text-slate-300" title="Align Right"><AlignRight className="w-4 h-4" /></button>
-                    <div className="w-px h-4 bg-white/10 self-center mx-1"></div>
-                    <button onClick={deleteSelectedImage} className="p-1.5 hover:bg-red-500/20 text-red-400 rounded" title="Remove"><Trash2 className="w-4 h-4" /></button>
-                </div>
-
-                {/* Resize Handle */}
-                <div 
-                    className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-fuchsia-500 border-2 border-white rounded-full cursor-se-resize pointer-events-auto shadow-md hover:scale-125 transition-transform"
-                    onMouseDown={handleResizeMouseDown}
-                ></div>
-             </div>
-        )}
       </div>
     </div>
   );

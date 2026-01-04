@@ -199,7 +199,7 @@ export const CalendarTasksPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-midnight text-slate-200">
+    <div className="flex flex-col h-screen bg-midnight text-slate-200 w-full">
       {/* Header */}
       <div className="p-6 border-b border-glass-border bg-gradient-to-r from-blue-900/10 to-cyan-900/10">
         <div className="flex items-center justify-between mb-4">

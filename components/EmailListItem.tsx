@@ -55,7 +55,7 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
   return (
     <div 
         onClick={() => navigate(`${basePath}/${email.id}`)}
-        className={`group relative p-5 mb-3 rounded-2xl cursor-pointer transition-all duration-300 border backdrop-blur-sm ${
+        className={`group relative p-5 mb-3 rounded-2xl cursor-pointer transition-all duration-300 border backdrop-blur-sm overflow-hidden ${
         selected 
         ? 'bg-glass-gradient border-fuchsia-500/30 shadow-[0_0_30px_rgba(236,72,153,0.15)]' 
         : 'bg-glass border-transparent hover:bg-glass-hover hover:border-glass-border'
@@ -74,6 +74,12 @@ export const EmailListItem: React.FC<Props> = ({ email, basePath }) => {
             )}
         </div>
         <span className="text-[10px] font-medium text-slate-500">{formatWhatsAppDateShort(email.timestamp)}</span>
+       {!email.read && (
+  <span className="absolute -top-[-7px] -right-6 rotate-45 bg-red-500 text-white text-[10px] font-bold px-8 py-1 shadow-md">
+    NEW
+  </span>
+)}
+
         </div>
         
         <div className="pl-11">

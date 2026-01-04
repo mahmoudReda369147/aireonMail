@@ -244,7 +244,7 @@ export const mapGmailEmailToEmail = (gmailEmail: GmailEmail): import('../types')
     body: gmailEmail.textBody || gmailEmail.htmlBody || '',
     htmlBody: gmailEmail.htmlBody || '',
     timestamp: gmailEmail.date,
-    read: false, // Gmail doesn't provide read status in this structure
+    read: gmailEmail.isRead, // Gmail doesn't provide read status in this structure
     folder: 'inbox' as const,
     attachments: gmailEmail.attachments.map(att => ({
       name: att.filename,
@@ -669,5 +669,160 @@ export interface CreateBotResponse {
 // Create Bot service function
 export const createBot = async (data: CreateBotRequest): Promise<CreateBotResponse> => {
   const response = await post<CreateBotResponse>('/bots', data);
+  return response.data;
+};
+
+// Upload PDF interfaces
+export interface UploadPdfRequest {
+  html: string;
+}
+
+export interface UploadPdfResponse {
+  success: boolean;
+  url: string;
+}
+
+// Upload PDF service function
+export const uploadPdf = async (data: UploadPdfRequest): Promise<UploadPdfResponse> => {
+  const response = await post<UploadPdfResponse>('/pdf/upload-pdf', data);
+  return response.data;
+};
+
+// Archived Email interfaces
+export interface ArchivedEmail {
+  id: string;
+  threadId: string;
+  snippet: string;
+  internalDate: string;
+  isRead: boolean;
+  from: string;
+  to: string;
+  subject: string;
+  date: string;
+  textBody: string;
+  htmlBody: string;
+  attachments: GmailAttachment[];
+  labels: string[];
+  isArchived: boolean;
+}
+
+export interface ArchivedEmailsResponse {
+  success: boolean;
+  message: string;
+  data: ArchivedEmail[];
+}
+
+// Fetch archived emails (drafts) service function
+export const fetchArchivedEmails = async (): Promise<ArchivedEmailsResponse> => {
+  const response = await get<ArchivedEmailsResponse>('/gmail/archived');
+  return response.data;
+};
+
+// Convert archived email to app Email format
+export const mapArchivedEmailToEmail = (archivedEmail: ArchivedEmail): import('../types').Email => {
+  // Extract sender name from "Name <email>" format or use the full string
+  const extractName = (fromField: string): string => {
+    const match = fromField.match(/^(.+?)\s*<.*>$/);
+    return match ? match[1].trim() : fromField;
+  };
+
+  // Extract sender email from "Name <email>" format
+  const extractEmail = (fromField: string): string => {
+    const match = fromField.match(/<(.+)>$/);
+    return match ? match[1] : fromField;
+  };
+
+  return {
+    id: archivedEmail.id,
+    sender: extractName(archivedEmail.from),
+    senderEmail: extractEmail(archivedEmail.from),
+    subject: archivedEmail.subject,
+    preview: archivedEmail.snippet,
+    body: archivedEmail.textBody || archivedEmail.htmlBody || '',
+    htmlBody: archivedEmail.htmlBody || '',
+    timestamp: archivedEmail.date,
+    read: archivedEmail.isRead,
+    folder: 'drafts' as const,
+    attachments: archivedEmail.attachments.map(att => ({
+      name: att.filename,
+      type: att.mimeType?.startsWith('image/') ? 'image' :
+            att.mimeType?.startsWith('video/') ? 'video' : 'document',
+      url: att.data || '',
+      size: att.size ? `${att.size} bytes` : 'Unknown size'
+    }))
+  };
+};
+
+// Gmail Threads interfaces
+export interface ThreadMessage {
+  id: string;
+  threadId: string;
+  snippet: string;
+  internalDate: string;
+  isRead: boolean;
+  labels: string[];
+  from: string;
+  to: string;
+  cc: string | null;
+  bcc: string | null;
+  subject: string;
+  date: string;
+  textBody: string | null;
+  htmlBody: string | null;
+  attachments: GmailAttachment[];
+}
+
+export interface GmailThread {
+  id: string;
+  historyId: string;
+  snippet: string | null;
+  messageCount: number;
+  subject: string;
+  from: string;
+  to: string;
+  firstDate: string;
+  lastDate: string;
+  messages: ThreadMessage[];
+}
+
+export interface GmailThreadsMeta {
+  count: number;
+  pageSize: number;
+  nextPageToken: string | null;
+  hasMore: boolean;
+  resultSizeEstimate: number;
+  q: string | null;
+}
+
+export interface GmailThreadsResponse {
+  success: boolean;
+  message: string;
+  data: GmailThread[];
+  meta: GmailThreadsMeta;
+}
+
+// Fetch Gmail threads service function
+export const fetchGmailThreads = async (pageToken?: string): Promise<GmailThreadsResponse> => {
+  const params = new URLSearchParams();
+  if (pageToken) {
+    params.append('pageToken', pageToken);
+  }
+
+  const url = `/gmail/threads${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await get<GmailThreadsResponse>(url);
+  return response.data;
+};
+
+// Single thread response interface
+export interface SingleThreadResponse {
+  success: boolean;
+  message: string;
+  data: GmailThread;
+  meta: null;
+}
+
+// Fetch single Gmail thread by ID
+export const fetchGmailThreadById = async (threadId: string): Promise<SingleThreadResponse> => {
+  const response = await get<SingleThreadResponse>(`/gmail/threads/${threadId}`);
   return response.data;
 };

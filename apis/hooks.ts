@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail } from './services';
+import { useEffect } from 'react';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail, fetchArchivedEmails, ArchivedEmailsResponse, fetchGmailThreads, GmailThreadsResponse, fetchGmailThreadById, SingleThreadResponse } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -46,6 +47,15 @@ export const CALENDAR_TASKS_QUERY_KEY = 'calendar-tasks';
 
 // React Query key for bots
 export const BOTS_QUERY_KEY = 'bots';
+
+// React Query key for archived emails
+export const ARCHIVED_EMAILS_QUERY_KEY = 'archived-emails';
+
+// React Query key for Gmail threads
+export const GMAIL_THREADS_QUERY_KEY = 'gmail-threads';
+
+// React Query key for single Gmail thread
+export const GMAIL_THREAD_BY_ID_QUERY_KEY = 'gmail-thread-by-id';
 
 // Hook for fetching Gmail emails with infinite scroll pagination
 export const useGmailEmails = () => {
@@ -138,7 +148,9 @@ export const useDeleteGmailEmail = () => {
 
 // Hook for fetching a single Gmail email by ID
 export const useGmailEmailById = (emailId: string) => {
-  return useQuery<SingleGmailEmailResponse>({
+  const queryClient = useQueryClient();
+  
+  const query = useQuery<SingleGmailEmailResponse>({
     queryKey: [GMAIL_EMAIL_BY_ID_QUERY_KEY, emailId],
     queryFn: () => fetchGmailEmailById(emailId),
     enabled: !!emailId,
@@ -146,6 +158,18 @@ export const useGmailEmailById = (emailId: string) => {
     staleTime: 0, // No cache - always fetch fresh data
     gcTime: 0, // Don't keep unused data in cache
   });
+
+  // Use useEffect to invalidate queries when the query succeeds
+  useEffect(() => {
+    if (query.isSuccess && query.data) {
+      // Invalidate Gmail emails page queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      // Invalidate archived emails query to refresh the drafts list
+      queryClient.invalidateQueries({ queryKey: [ARCHIVED_EMAILS_QUERY_KEY] });
+    }
+  }, [query.isSuccess, query.data, queryClient]);
+
+  return query;
 };
 
 // Hook for fetching a single page of Gmail emails (if needed)
@@ -347,5 +371,42 @@ export const useCreateBot = () => {
       // Invalidate and refetch bots after creating
       queryClient.invalidateQueries({ queryKey: [BOTS_QUERY_KEY] });
     },
+  });
+};
+
+// Hook for fetching archived emails (drafts)
+export const useArchivedEmails = () => {
+  return useQuery<ArchivedEmailsResponse>({
+    queryKey: [ARCHIVED_EMAILS_QUERY_KEY],
+    queryFn: fetchArchivedEmails,
+    enabled: true,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+// Hook for fetching Gmail threads with infinite scroll pagination
+export const useGmailThreads = () => {
+  return useInfiniteQuery<GmailThreadsResponse>({
+    queryKey: [GMAIL_THREADS_QUERY_KEY],
+    queryFn: ({ pageParam }) => fetchGmailThreads(pageParam as string | undefined),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      return lastPage.meta.hasMore ? lastPage.meta.nextPageToken : undefined;
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+// Hook for fetching a single Gmail thread by ID
+export const useGmailThreadById = (threadId: string | undefined) => {
+  return useQuery<SingleThreadResponse>({
+    queryKey: [GMAIL_THREAD_BY_ID_QUERY_KEY, threadId],
+    queryFn: () => fetchGmailThreadById(threadId!),
+    enabled: !!threadId,
+    refetchOnWindowFocus: false,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
 };

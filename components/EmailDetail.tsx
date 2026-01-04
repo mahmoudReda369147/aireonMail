@@ -123,9 +123,9 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
   // Load AI summary and calendar task from fetched email data or generate new one
   useEffect(() => {
-    if (!fullEmailData) return;
+    if (!fullEmailData || email.folder === 'sent') return; // Skip analysis for sent emails
 
-    // Load calendar task if exists
+    // Check if there's a saved calendar task
     if (fullEmailData.calendarTask) {
       setSavedCalendarTask(fullEmailData.calendarTask as CalendarTaskData);
     }
@@ -165,7 +165,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
       analyzeEmail();
     }
-  }, [fullEmailData, aiSummary, isAnalyzingSummary]);
+  }, [fullEmailData, aiSummary, isAnalyzingSummary, email.folder]);
 
   const handleDelete = () => {
     requestConfirm({
@@ -494,7 +494,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 <Button variant="secondary" onClick={handleAnalyzeActions} isLoading={isAnalyzing} icon={Sparkles}>
                     Smart Actions
                 </Button>
-                <Button
+                {email.folder !== 'sent' && <Button
                     variant="secondary"
                     onClick={() => setShowAi(!showAi)}
                     isLoading={isGenerating}
@@ -502,8 +502,8 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                     className={`transition-all ${showAi ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.4)]' : 'bg-fuchsia-500/10 border-fuchsia-500/50 text-fuchsia-100 hover:bg-fuchsia-500/20'}`}
                 >
                     {showAi ? 'Close Assistant' : 'AI Reply'}
-                </Button>
-                <Button variant="icon" icon={Trash2} onClick={handleDelete} />
+                </Button>}
+                {email.folder !== 'sent' && <Button variant="icon" icon={Trash2} onClick={handleDelete} />}
 
                 {/* More Actions Dropdown */}
                 <div className="relative" ref={moreActionsRef}>
@@ -570,7 +570,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
             {/* AI Insights, Meetings & Tasks Section */}
             <div className="grid gap-6 mb-8">
-                {(aiSummary || isAnalyzingSummary) && (
+                {email.folder !== 'sent' && (aiSummary || isAnalyzingSummary) && (
                     <div className="bg-gradient-to-r from-fuchsia-900/10 to-purple-900/10 p-6 rounded-2xl border border-fuchsia-500/20 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Sparkles className="w-24 h-24 text-fuchsia-500" />
@@ -607,7 +607,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 
                 {/* Meeting Detected Card */}
                 {detectedMeeting && (
-                    <div className="bg-gradient-to-r from-blue-900/20 to-indigo-900/20 p-6 rounded-2xl border border-blue-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                    <div className="bg-gradient-to-r  from-blue-900/20 to-indigo-900/20 p-6 rounded-2xl border border-blue-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
                         <div className="flex items-center justify-between mb-4">
                              <div className="flex items-center gap-2">
                                 <Calendar className="w-5 h-5 text-blue-400" />
@@ -850,7 +850,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 )}
             </div>
 
-            <div className="prose prose-invert max-w-none text-slate-300 mb-10 whitespace-pre-line leading-relaxed font-light text-lg">
+            <div className="prose prose-invert  max-w-none text-slate-300 mb-10 whitespace-pre-line leading-relaxed font-light text-lg">
                 {console.log("fullEmailData", fullEmailData)}
                 <div dangerouslySetInnerHTML={{ __html: fullEmailData.htmlBody || fullEmailData.textBody || '' }} />
             </div>

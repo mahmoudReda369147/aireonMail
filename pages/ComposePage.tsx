@@ -137,7 +137,7 @@ export const ComposePage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full overflow-hidden relative">
+    <div className="flex h-full overflow-hidden relative w-full">
         {/* Main Compose Area */}
         <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto custom-scrollbar">
             {/* Header */}

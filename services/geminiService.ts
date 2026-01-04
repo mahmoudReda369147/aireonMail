@@ -388,9 +388,9 @@ Create a complete HTML document with inline CSS styles. Include <!DOCTYPE html>,
   // Extract text from the response - prioritize parts array over response.text
   let jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
   const result = JSON.parse(jsonText || "{}");
+  console.log("generateDocument result:", jsonText);
   return result.html || "";
 };
-
 export const generateResume = async (prompt: string) => {
   const model = "gemini-3-flash-preview";
   const ai = getAiClient();
