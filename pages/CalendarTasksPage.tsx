@@ -5,6 +5,7 @@ import { CalendarTaskData, FetchCalendarTasksParams } from '../apis/services';
 import { Dropdown, DropdownOption } from '../components/common/Dropdown';
 import { X } from 'lucide-react';
 import { useAppContext } from '../contexts/AppContext';
+import { CountdownTimer } from '../components/CountdownTimer';
 
 export const CalendarTasksPage: React.FC = () => {
   const { showToast, requestConfirm } = useAppContext();
@@ -111,7 +112,7 @@ export const CalendarTasksPage: React.FC = () => {
     setTaskForm({
       title: task.title,
       description: task.description || '',
-      dueDate: task.dueDate.split('T')[0], // Extract date part
+      dueDate: new Date(task.dueDate).toISOString().slice(0, 16), // Extract date and time for datetime-local
       priority: task.priority as 'low' | 'medium' | 'high',
       status: task.status as 'pending' | 'completed',
     });
@@ -308,12 +309,20 @@ export const CalendarTasksPage: React.FC = () => {
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className="bg-gradient-to-r from-blue-900/20 to-indigo-900/20 p-6 rounded-2xl border border-blue-500/30 relative overflow-hidden animate-in fade-in slide-in-from-top-4 shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:shadow-[0_0_30px_rgba(59,130,246,0.25)] transition-all"
+                className={`p-6 rounded-2xl border relative overflow-hidden animate-in fade-in slide-in-from-top-4 transition-all flex flex-col ${
+                'bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:shadow-[0_0_30px_rgba(59,130,246,0.25)]'
+                }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-blue-400" />
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
+                    {task.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <Calendar className="w-5 h-5 text-blue-400" />
+                    )}
+                    <span className={`text-xs font-bold uppercase tracking-widest ${
+                      task.status === 'completed' ? 'text-green-400' : 'text-blue-400'
+                    }`}>
                       {task.status === 'completed' ? 'Completed Event' : 'Calendar Event'}
                     </span>
                   </div>
@@ -329,32 +338,80 @@ export const CalendarTasksPage: React.FC = () => {
                     {task.priority}
                   </span>
                 </div>
-                <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3 backdrop-blur-sm">
-                  <div className="font-bold text-white text-lg tracking-tight">
-                    {task.title}
-                  </div>
-                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-slate-500" />{' '}
-                      {new Date(task.dueDate).toLocaleDateString()}
+                <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm flex-1 flex flex-col relative">
+                  {task.bot && (
+                    <span
+                      className="absolute top-4 -right-5 inline-block text-[9px] px-2 py-0.5 font-bold  tracking-wider pointer-events-none"
+                      style={{
+                        transform: 'rotate(40deg)',
+                        color: '#9333ea',
+                        border: '1.5px solid #9333ea',
+                        borderRadius: '4px',
+                        background: 'radial-gradient(circle at 30% 40%, rgba(147, 51, 234, 0.08), rgba(147, 51, 234, 0.05))',
+                        boxShadow: 'inset 0 0 8px rgba(147, 51, 234, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1)',
+                        filter: 'contrast(1.1) saturate(0.9)',
+                        letterSpacing: '0.08em',
+                        fontFamily: 'monospace',
+                        backdropFilter: 'blur(0.5px)',
+                      }}
+                    >
+                      <span style={{
+                        position: 'relative',
+                        zIndex: 1,
+                        textShadow: '0 0 1px rgba(147, 51, 234, 0.3)',
+                      }}>
+                        by: {task.bot.botName}[bot]
+                      </span>
+                      {/* Stamp texture overlay */}
+                      <span
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: `repeating-linear-gradient(
+                            0deg,
+                            transparent,
+                            transparent 1px,
+                            rgba(147, 51, 234, 0.03) 1px,
+                            rgba(147, 51, 234, 0.03) 2px
+                          )`,
+                          mixBlendMode: 'multiply',
+                        }}
+                      />
+                    </span>
+                  )}
+                  <div className="flex-1 space-y-3">
+                    <div className="font-bold text-white text-lg tracking-tight">
+                      {task.title}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-slate-500" />{' '}
-                      {new Date(task.dueDate).toLocaleTimeString()}
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-slate-500" />{' '}
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-slate-500" />{' '}
+                        {new Date(task.dueDate).toLocaleTimeString()}
+                      </div>
+                      {task.googleEventId && (
+                        <div className="flex items-center gap-2 text-blue-400">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Synced with Google
+                        </div>
+                      )}
                     </div>
-                    {task.googleEventId && (
-                      <div className="flex items-center gap-2 text-blue-400">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Synced with Google
+                    {task.description && (
+                      <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
+                        <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">
+                          Description
+                        </span>
+                        {task.description}
                       </div>
                     )}
                   </div>
-                  {task.description && (
-                    <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
-                      <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">
-                        Description
-                      </span>
-                      {task.description}
+
+                  {/* Countdown Timer - Only show for pending events */}
+                  {task.status !== 'completed' && (
+                    <div className="mt-3">
+                      <CountdownTimer dueDate={task.dueDate} />
                     </div>
                   )}
 
@@ -498,17 +555,18 @@ export const CalendarTasksPage: React.FC = () => {
 
               {/* Date and Time Grid */}
               <div className="grid grid-cols-2 gap-4">
-                {/* Due Date */}
+                {/* Due Date & Time */}
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                    Due Date
+                    Due Date & Time
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={taskForm.dueDate}
                     onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
                     className="w-full px-4 py-3 bg-black/40 border border-blue-500/20 rounded-xl text-white outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
+                    step="1"
                   />
                 </div>
 

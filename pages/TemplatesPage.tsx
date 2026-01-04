@@ -64,8 +64,8 @@ export const TemplatesPage: React.FC = () => {
     }
 
     return (
-        <div className="h-full flex flex-col p-8 max-w-7xl mx-auto overflow-y-auto custom-scrollbar">
-            <div className="flex items-center justify-between mb-8">
+        <div className="h-full flex flex-col p-8 max-w-7xl mx-auto overflow-y-auto custom-scrollbar w-full">
+            <div className="flex items-center justify-between mb-8 w-full">
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                         <LayoutTemplate className="w-8 h-8 text-fuchsia-500" />

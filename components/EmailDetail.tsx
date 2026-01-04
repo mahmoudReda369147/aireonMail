@@ -525,6 +525,26 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                 <ListTodo className="w-4 h-4 text-purple-400" />
                                 <span className="text-sm font-medium">Add Task</span>
                             </button>
+                            <button
+                                onClick={() => {
+                                    setShowCalendarModal(true);
+                                    setShowMoreActions(false);
+                                    // Pre-fill with current date and time
+                                    const now = new Date();
+                                    const dateTimeString = `${now.toISOString().slice(0, 10)}T${now.toTimeString().slice(0, 5)}:00+02:00`;
+                                    setCalendarForm({
+                                        title: '',
+                                        description: '',
+                                        status: 'pending',
+                                        priority: 'medium',
+                                        dueDate: dateTimeString
+                                    });
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-blue-500/10 transition-colors"
+                            >
+                                <Calendar className="w-4 h-4 text-blue-400" />
+                                <span className="text-sm font-medium">Add to Calendar</span>
+                            </button>
                         </div>
                     )}
                 </div>

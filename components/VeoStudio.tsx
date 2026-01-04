@@ -1,133 +1,327 @@
-import React, { useState } from 'react';
-import { generateVideo, generateImage } from '../services/geminiService';
-import { Video, Image as ImageIcon, Loader2, Play, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FileText, Download, Sparkles, Loader2, FileSignature, Mail } from 'lucide-react';
+import { generateDocument, generateResume, generateCoverLetter } from '../services/geminiService';
+import { useToast } from '../components/common/Toast';
+import html2pdf from 'html2pdf.js';
+
+type DocumentType = 'document' | 'resume' | 'coverletter';
 
 export const VeoStudio: React.FC = () => {
-  const [mode, setMode] = useState<'generate' | 'animate'>('generate');
+  const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState<DocumentType>('document');
   const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
+  const [generatedHtml, setGeneratedHtml] = useState('');
+  const [pdfDataUrl, setPdfDataUrl] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isConvertingToPdf, setIsConvertingToPdf] = useState(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleGenerate = async () => {
-    if (!prompt) return;
-    setLoading(true);
-    setResultUrl(null);
+  const convertHtmlToPdf = async (html: string): Promise<string> => {
+    // Create a temporary container for the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    tempDiv.style.width = '210mm'; // A4 width
+    tempDiv.style.padding = '20mm';
+    tempDiv.style.backgroundColor = 'white';
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    document.body.appendChild(tempDiv);
+
     try {
-      if (mode === 'generate') {
-         // Generate video from text
-         const url = await generateVideo(prompt, aspectRatio);
-         setResultUrl(url);
-      } else {
-         // Just a demo for Image Gen for now as "Animate" usually requires an input image
-         // We will use the Image Gen PRO model here
-         const url = await generateImage(prompt, "1K");
-         setResultUrl(url);
-      }
-    } catch (e) {
-      alert("Generation failed. See console.");
-      console.error(e);
+      const opt = {
+        margin: 0,
+        filename: `${activeTab}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Generate PDF and get blob
+      const pdfBlob = await html2pdf().set(opt).from(tempDiv).output('blob');
+
+      // Convert blob to data URL
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      return dataUrl;
     } finally {
-      setLoading(false);
+      document.body.removeChild(tempDiv);
     }
   };
 
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      showToast('Please enter a prompt to generate your document', 'error');
+      return;
+    }
+
+    setIsGenerating(true);
+    setPdfDataUrl('');
+
+    try {
+      let html = '';
+
+      if (activeTab === 'document') {
+        html = await generateDocument(prompt);
+      } else if (activeTab === 'resume') {
+        html = await generateResume(prompt);
+      } else if (activeTab === 'coverletter') {
+        html = await generateCoverLetter(prompt);
+      }
+
+      setGeneratedHtml(html);
+      showToast('Document generated successfully!', 'success');
+
+      // Convert to PDF
+      setIsConvertingToPdf(true);
+      const pdfUrl = await convertHtmlToPdf(html);
+      setPdfDataUrl(pdfUrl);
+      setIsConvertingToPdf(false);
+
+    } catch (error) {
+      console.error('Failed to generate document:', error);
+      showToast('Failed to generate document. Please try again.', 'error');
+      setIsConvertingToPdf(false);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!generatedHtml) {
+      showToast('Please generate a document first', 'error');
+      return;
+    }
+
+    try {
+      showToast('Preparing PDF download...', 'info');
+
+      // Create temporary container
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = generatedHtml;
+      tempDiv.style.width = '210mm';
+      tempDiv.style.padding = '20mm';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      document.body.appendChild(tempDiv);
+
+      const opt = {
+        margin: 0,
+        filename: `${activeTab}-${Date.now()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(tempDiv).save();
+
+      document.body.removeChild(tempDiv);
+      showToast('PDF downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+      showToast('Failed to download PDF', 'error');
+    }
+  };
+
+  const getPlaceholder = () => {
+    switch (activeTab) {
+      case 'document':
+        return 'Example: Create a professional business proposal for a web development project worth $50,000. Include executive summary, project scope, timeline, and pricing...';
+      case 'resume':
+        return 'Example: Create a resume for a Senior Full Stack Developer with 5 years of experience in React, Node.js, TypeScript, AWS, and Docker. Include 3 previous positions at tech companies...';
+      case 'coverletter':
+        return 'Example: Create a cover letter for a Software Engineer position at Google. Highlight my 4 years of experience in distributed systems and my passion for building scalable applications...';
+      default:
+        return '';
+    }
+  };
+
+  const getTabIcon = (tab: DocumentType) => {
+    switch (tab) {
+      case 'document':
+        return FileText;
+      case 'resume':
+        return FileSignature;
+      case 'coverletter':
+        return Mail;
+      default:
+        return FileText;
+    }
+  };
+
+  const getTabLabel = (tab: DocumentType) => {
+    switch (tab) {
+      case 'document':
+        return 'Document';
+      case 'resume':
+        return 'Resume/CV';
+      case 'coverletter':
+        return 'Cover Letter';
+      default:
+        return '';
+    }
+  };
+
+  const tabs: DocumentType[] = ['document', 'resume', 'coverletter'];
+
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-10 text-center">
-        <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400 mb-4 tracking-tight">Creative Studio</h1>
-        <p className="text-slate-400 text-lg">Powered by Veo 3.1 & Gemini 3 Pro Image</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Mode Switcher */}
-          <div className="bg-glass border border-glass-border rounded-2xl p-1.5 flex">
-            <button 
-              onClick={() => setMode('generate')}
-              className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${mode === 'generate' ? 'bg-surface border border-glass-border text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              Video Mode
-            </button>
-            <button 
-               onClick={() => setMode('animate')}
-               className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${mode === 'animate' ? 'bg-surface border border-glass-border text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              Image Mode
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 p-8 overflow-y-auto">
+      <div className="max-w-7xl mx-auto pb-8">
+        {/* Header */}
+        <div className="mb-10 text-center">
+          <div className="inline-flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500">
+              <FileText className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
+              Document Studio
+            </h1>
           </div>
+          <p className="text-slate-400 text-lg">Create professional documents with AI-powered generation</p>
+        </div>
 
-          <div className="space-y-6 bg-glass border border-glass-border p-6 rounded-3xl backdrop-blur-sm">
-             <div>
-               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Creative Prompt</label>
-               <textarea 
-                className="w-full p-4 rounded-xl border border-glass-border bg-black/20 text-white placeholder:text-slate-600 focus:border-fuchsia-500 outline-none h-40 resize-none transition-colors text-base leading-relaxed"
-                placeholder={mode === 'generate' ? "Describe the video you want to generate..." : "Describe the image you want to create..."}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-               />
-             </div>
-
-             {mode === 'generate' && (
-               <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Aspect Ratio</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => setAspectRatio('16:9')}
-                      className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${aspectRatio === '16:9' ? 'border-fuchsia-500 bg-fuchsia-500/10 text-white' : 'border-glass-border text-slate-500 hover:border-slate-500'}`}
-                    >
-                      Landscape (16:9)
-                    </button>
-                    <button 
-                      onClick={() => setAspectRatio('9:16')}
-                      className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${aspectRatio === '9:16' ? 'border-fuchsia-500 bg-fuchsia-500/10 text-white' : 'border-glass-border text-slate-500 hover:border-slate-500'}`}
-                    >
-                      Portrait (9:16)
-                    </button>
-                  </div>
-               </div>
-             )}
-
-             <button 
-               onClick={handleGenerate}
-               disabled={loading || !prompt}
-               className="w-full py-4 bg-brand-gradient hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-purple-500/30 transition-all text-lg"
-             >
-               {loading ? <Loader2 className="animate-spin w-5 h-5"/> : <Sparkles className="w-5 h-5"/>}
-               {loading ? 'Generating...' : 'Generate Magic'}
-             </button>
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="flex gap-3 justify-center">
+            {tabs.map((tab) => {
+              const Icon = getTabIcon(tab);
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setPrompt('');
+                    setGeneratedHtml('');
+                    setPdfDataUrl('');
+                  }}
+                  className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all ${
+                    isActive
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 border border-slate-700'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  {getTabLabel(tab)}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="lg:col-span-8 bg-black/40 rounded-3xl border border-glass-border flex items-center justify-center min-h-[500px] overflow-hidden relative shadow-inner">
-           {loading && (
-             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-fuchsia-500 blur-xl opacity-20 animate-pulse"></div>
-                    <Loader2 className="w-16 h-16 text-fuchsia-500 animate-spin relative z-10" />
-                </div>
-                <p className="text-white font-bold mt-6 text-lg tracking-wide">Synthesizing Pixels...</p>
-                {mode === 'generate' && <p className="text-sm text-slate-400 mt-2">Veo is dreaming up your video.</p>}
-             </div>
-           )}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Sidebar - Prompt Input */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-6">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                {getTabLabel(activeTab)} Prompt
+              </h2>
 
-           {!resultUrl && !loading && (
-             <div className="text-center text-slate-600">
-                <div className="w-24 h-24 bg-surface border border-glass-border rounded-full mx-auto flex items-center justify-center mb-6 shadow-lg">
-                  <Play className="w-10 h-10 opacity-30 ml-1" />
+              {/* Prompt Input */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">
+                    Describe your {getTabLabel(activeTab).toLowerCase()}
+                  </label>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder={getPlaceholder()}
+                    className="w-full h-64 bg-black/40 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
+                  />
                 </div>
-                <p className="text-lg font-medium">Your creation will manifest here</p>
-             </div>
-           )}
+              </div>
 
-           {resultUrl && (
-             mode === 'generate' ? (
-                <video src={resultUrl} controls className="w-full h-full object-contain" autoPlay loop />
-             ) : (
-                <img src={resultUrl} alt="Generated" className="w-full h-full object-contain" />
-             )
-           )}
+              {/* Action Buttons */}
+              <div className="mt-6 space-y-3">
+                <button
+                  onClick={handleGenerate}
+                  disabled={!prompt.trim() || isGenerating}
+                  className="w-full py-4 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-500/30 transition-all"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Generate {getTabLabel(activeTab)}
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={!generatedHtml}
+                  className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 disabled:cursor-not-allowed border border-slate-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+                >
+                  <Download className="w-5 h-5" />
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - PDF Preview Area */}
+          <div className="lg:col-span-8">
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl overflow-hidden">
+              <div className="bg-slate-800/50 px-6 py-4 border-b border-slate-700">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-purple-400" />
+                  PDF Preview
+                </h3>
+              </div>
+
+              <div className="h-[700px] overflow-auto bg-slate-800/30" ref={previewContainerRef}>
+                {isGenerating || isConvertingToPdf ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                    <Loader2 className="w-16 h-16 animate-spin text-purple-400 mb-4" />
+                    <h3 className="text-xl font-bold text-slate-400 mb-2">
+                      {isGenerating
+                        ? `Generating your ${getTabLabel(activeTab).toLowerCase()}...`
+                        : 'Converting to PDF...'}
+                    </h3>
+                    <p className="text-slate-600">This may take a few moments</p>
+                  </div>
+                ) : pdfDataUrl ? (
+                  <div className="w-full h-full">
+                    <embed
+                      src={pdfDataUrl}
+                      type="application/pdf"
+                      className="w-full h-full"
+                      style={{ minHeight: '700px' }}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                    <div className="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center mb-6 border-4 border-slate-700">
+                      <FileText className="w-16 h-16 opacity-30" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-400 mb-2">No Document Yet</h3>
+                    <p className="text-slate-600 mb-6">Enter a prompt and click "Generate" to create your PDF document</p>
+
+                    <div className="grid grid-cols-2 gap-4 mt-8 max-w-md">
+                      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                        <Sparkles className="w-8 h-8 text-purple-400 mb-2" />
+                        <p className="text-sm text-slate-400">AI-Powered</p>
+                      </div>
+                      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                        <FileText className="w-8 h-8 text-pink-400 mb-2" />
+                        <p className="text-sm text-slate-400">PDF Output</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

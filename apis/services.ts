@@ -316,6 +316,9 @@ export interface CalendarTaskData {
   userId: string;
   gmailId: string;
   googleEventId: string;
+  isCreatedByBot?: boolean;
+  botId?: string | null;
+  bot?: BotData | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -445,6 +448,9 @@ export interface TaskData {
   priority: string;
   userId: string;
   gmailId: string | null;
+  isCreatedByBot: boolean;
+  botId: string | null;
+  bot?: BotData | null;
   createdAt: string;
   updatedAt: string;
 }

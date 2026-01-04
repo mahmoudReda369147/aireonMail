@@ -359,3 +359,92 @@ export const generateVideo = async (prompt: string, aspectRatio: '16:9' | '9:16'
 };
 
 export const getLiveClient = () => getAiClient().live;
+
+// --- Document Generation ---
+
+export const generateDocument = async (prompt: string) => {
+  const model = "gemini-3-flash-preview";
+  const ai = getAiClient();
+
+  const systemPrompt = `Generate a professional, well-structured HTML document based on this request: ${prompt}
+
+Create a complete HTML document with inline CSS styles. Include <!DOCTYPE html>, <html>, <head>, and <body> tags. Make it professional, print-ready, and visually appealing.`;
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model,
+    contents: systemPrompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          html: { type: Type.STRING }
+        },
+        required: ["html"]
+      }
+    }
+  }));
+
+  // Extract text from the response - prioritize parts array over response.text
+  let jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
+  const result = JSON.parse(jsonText || "{}");
+  return result.html || "";
+};
+
+export const generateResume = async (prompt: string) => {
+  const model = "gemini-3-flash-preview";
+  const ai = getAiClient();
+
+  const systemPrompt = `Generate a professional ATS-friendly resume based on this request: ${prompt}
+
+Include sections: Header (name, contact), Professional Summary, Work Experience, Education, Skills. Use clean HTML with inline CSS. Make it print-ready and professional. Include <!DOCTYPE html>, <html>, <head>, and <body> tags.`;
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model,
+    contents: systemPrompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          html: { type: Type.STRING }
+        },
+        required: ["html"]
+      }
+    }
+  }));
+
+  // Extract text from the response - prioritize parts array over response.text
+  let jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
+  const result = JSON.parse(jsonText || "{}");
+  return result.html || "";
+};
+
+export const generateCoverLetter = async (prompt: string) => {
+  const model = "gemini-3-flash-preview";
+  const ai = getAiClient();
+
+  const systemPrompt = `Generate a professional cover letter based on this request: ${prompt}
+
+Include: Header (contact info), Date, Salutation, Opening paragraph, Body paragraphs (experience/skills), Closing paragraph, Sign-off. Use professional business letter formatting with inline CSS. Keep it concise (3-4 paragraphs). Include <!DOCTYPE html>, <html>, <head>, and <body> tags.`;
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model,
+    contents: systemPrompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          html: { type: Type.STRING }
+        },
+        required: ["html"]
+      }
+    }
+  }));
+
+  // Extract text from the response - prioritize parts array over response.text
+  let jsonText = response.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
+  const result = JSON.parse(jsonText || "{}");
+  return result.html || "";
+};

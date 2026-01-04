@@ -297,7 +297,8 @@ export const TasksPage: React.FC = () => {
                   >
                     {task.task}
                   </p>
-                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap justify-between items-center" >
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                     {task.taskDate && (
                       <span className="flex items-center gap-1 text-[10px] text-slate-400">
                         <Calendar className="w-3 h-3" />{' '}
@@ -315,11 +316,54 @@ export const TasksPage: React.FC = () => {
                     >
                       {task.priority}
                     </span>
+                    
                     <span className="text-[10px] text-slate-500">
                       Created: {new Date(task.createdAt).toLocaleDateString()}
                     </span>
                   </div>
+                  <div>
+                  {task.bot && (
+                      <span
+                        className="relative inline-block text-[9px] px-2 py-1 font-bold uppercase tracking-wider"
+                        style={{
+                          transform: 'rotate(-8deg)',
+                          color: '#9333ea',
+                          border: '1.5px solid #9333ea',
+                          borderRadius: '4px',
+                          background: 'radial-gradient(circle at 30% 40%, rgba(147, 51, 234, 0.08), rgba(147, 51, 234, 0.05))',
+                          boxShadow: 'inset 0 0 8px rgba(147, 51, 234, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1)',
+                          filter: 'contrast(1.1) saturate(0.9)',
+                          letterSpacing: '0.08em',
+                          fontFamily: 'monospace',
+                          backdropFilter: 'blur(0.5px)',
+                        }}
+                      >
+                        <span style={{
+                          position: 'relative',
+                          zIndex: 1,
+                          textShadow: '0 0 1px rgba(147, 51, 234, 0.3)',
+                        }}>
+                         by: {task.bot.botName.toUpperCase()}[bot]
+                        </span>
+                        {/* Stamp texture overlay */}
+                        <span
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            background: `repeating-linear-gradient(
+                              0deg,
+                              transparent,
+                              transparent 1px,
+                              rgba(147, 51, 234, 0.03) 1px,
+                              rgba(147, 51, 234, 0.03) 2px
+                            )`,
+                            mixBlendMode: 'multiply',
+                          }}
+                        />
+                      </span>
+                    )}
+                  </div>
                 </div>
+              </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleEditTask(task)}
