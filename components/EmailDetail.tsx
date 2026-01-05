@@ -12,6 +12,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply, useDeleteGmailEmail } from '../apis/hooks';
 import { CalendarTaskData, GmailEmail, TaskData } from '../apis/services';
 import { formatWhatsAppDate } from '../utils/dateFormat';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 interface Props {
     email: Email;
@@ -45,6 +46,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const { data: emailDataResponse, isLoading: isLoadingEmailData } = useGmailEmailById(email.id);
   const fullEmailData = emailDataResponse?.data;
   const [replyHtml, setReplyHtml] = useState(''); // Changed to replyHtml
+  const { setBgColor: setReplyBgColor, wrapWithFullHTML } = useEditorBackgroundColor();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAnalyzingSummary, setIsAnalyzingSummary] = useState(false);
@@ -441,7 +443,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
           await sendEmailReplyMutation.mutateAsync({
               to: email.senderEmail,
               subject: `Re: ${email.subject}`,
-              body: replyHtml,
+              body: wrapWithFullHTML(replyHtml),
               gmailId: email.id,
           });
           showToast("Reply sent successfully!", "success");
@@ -886,17 +888,23 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 <div className="bg-space rounded-xl p-4">
                     {isGenerating && <div className="mb-2 text-fuchsia-400 text-xs font-bold animate-pulse">Gemini is writing...</div>}
                     
-                    <RichEditor 
-                        value={replyHtml} 
-                        onChange={setReplyHtml} 
-                        placeholder="Write a reply... (Supports Rich Text & Documents)" 
+                    <RichEditor
+                        value={replyHtml}
+                        onChange={setReplyHtml}
+                        onBackgroundColorChange={setReplyBgColor}
+                        placeholder="Write a reply... (Supports Rich Text & Documents)"
                         className="min-h-[200px]"
                     />
                 </div>
-                <div className="flex justify-between items-center p-2 px-3">
-                    <div className="flex gap-1"></div>
-                    <Button onClick={handleSendReply} loading={sendEmailReplyMutation.isPending}>
-                        <Send className="w-4 h-4" /> {sendEmailReplyMutation.isPending ? 'Sending...' : 'Send Reply'}
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 p-2 px-3">
+                    <div className="hidden sm:flex gap-1"></div>
+                    <Button
+                        onClick={handleSendReply}
+                        loading={sendEmailReplyMutation.isPending}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2"
+                    >
+                        <Send className="w-4 h-4" />
+                        <span>{sendEmailReplyMutation.isPending ? 'Sending...' : 'Send Reply'}</span>
                     </Button>
                 </div>
             </div>

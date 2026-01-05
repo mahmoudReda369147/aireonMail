@@ -327,8 +327,15 @@ export const useDeleteCalendarTask = () => {
 
 // Hook for sending email reply
 export const useSendEmailReply = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (data: SendEmailReplyRequest) => sendEmailReply(data),
+    onSuccess: () => {
+      // Invalidate and refetch Gmail threads after sending reply
+      queryClient.invalidateQueries({ queryKey: [GMAIL_THREADS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [GMAIL_THREAD_BY_ID_QUERY_KEY] });
+    },
   });
 };
 
@@ -401,7 +408,9 @@ export const useGmailThreads = () => {
 
 // Hook for fetching a single Gmail thread by ID
 export const useGmailThreadById = (threadId: string | undefined) => {
-  return useQuery<SingleThreadResponse>({
+  const queryClient = useQueryClient();
+  
+  const result = useQuery<SingleThreadResponse>({
     queryKey: [GMAIL_THREAD_BY_ID_QUERY_KEY, threadId],
     queryFn: () => fetchGmailThreadById(threadId!),
     enabled: !!threadId,
@@ -409,4 +418,13 @@ export const useGmailThreadById = (threadId: string | undefined) => {
     staleTime: 0, // Always fetch fresh data
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
+
+  // Refresh threads list when thread data is successfully fetched
+  useEffect(() => {
+    if (result.data && !result.isLoading) {
+      queryClient.invalidateQueries({ queryKey: [GMAIL_THREADS_QUERY_KEY] });
+    }
+  }, [result.data, result.isLoading, queryClient]);
+
+  return result;
 };

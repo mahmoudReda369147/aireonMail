@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGmailThreads, useGmailThreadById } from '../apis/hooks';
+import { useGmailThreads, useGmailThreadById, useSendEmailReply } from '../apis/hooks';
 import { MessageSquare, Send, Loader2, ArrowLeft, MoreVertical, Search, Phone, Video, ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
 import { GmailThread, ThreadMessage } from '../apis/services';
+import { RichEditor } from '../components/common/RichEditor';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 // Thread list item component
 const ThreadListItem: React.FC<{
@@ -80,9 +82,9 @@ const ThreadListItem: React.FC<{
             <p className="text-xs text-slate-500 truncate flex-1">
               {lastMessage?.snippet || 'No preview'}
             </p>
-            <span className="text-xs text-fuchsia-400 ml-2 flex-shrink-0 bg-fuchsia-500/10 px-2 py-0.5 rounded-full">
-              {thread.messageCount}
-            </span>
+           { thread.unreadNum > 0 && <span className="text-xs text-fuchsia-400 ml-2 flex-shrink-0 bg-fuchsia-500/10 px-2 py-0.5 rounded-full">
+              {thread.unreadNum}
+            </span>}
           </div>
         </div>
       </div>
@@ -181,7 +183,7 @@ const ChatMessage: React.FC<{
             </button>
 
             {isExpanded && (
-              <div className={`mt-2 p-4 rounded-lg border ${isFullHeight ? 'overflow-auto h-[80vh]' : 'overflow-auto max-h-96'} custom-scrollbar ${
+              <div className={`mt-2 p-4 rounded-lg border ${isFullHeight ? 'overflow-auto ' : 'overflow-auto max-h-96'} custom-scrollbar ${
                 isOutgoing
                   ? 'bg-purple-900/20 border-purple-500/20'
                   : 'bg-slate-800/50 border-white/10'
@@ -204,7 +206,9 @@ export const ChatsPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useGmailThreads();
   const { data: threadData, isLoading: isThreadLoading } = useGmailThreadById(id);
-  const [messageText, setMessageText] = useState('');
+  const sendEmailReply = useSendEmailReply();
+  const [messageHtml, setMessageHtml] = useState('');
+  const { bgColor: messageBgColor, setBgColor: setMessageBgColor, wrapWithFullHTML } = useEditorBackgroundColor();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullHeight, setIsFullHeight] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -239,11 +243,23 @@ export const ChatsPage: React.FC = () => {
     return message.from.includes('tuvsnake@gmail.com');
   };
 
-  const handleSendMessage = () => {
-    if (!messageText.trim()) return;
-    // TODO: Implement send message functionality
-    console.log('Sending message:', messageText);
-    setMessageText('');
+  const handleSendMessage = async () => {
+    if (!messageHtml.trim() || !selectedThread) return;
+
+    try {
+      await sendEmailReply.mutateAsync({
+        to: selectedThread.from,
+        subject: `Re: ${selectedThread.subject}`,
+        body: wrapWithFullHTML(messageHtml),
+        gmailId: id!,
+      });
+
+      setMessageHtml('');
+      // Optionally show success message or refetch thread
+    } catch (error) {
+      console.error('Failed to send reply:', error);
+      // Optionally show error message
+    }
   };
 
   // Extract sender name
@@ -436,46 +452,61 @@ export const ChatsPage: React.FC = () => {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-white/5 bg-gradient-to-r from-slate-900/50 to-slate-950/50 backdrop-blur-sm">
-              <div className="max-w-4xl mx-auto">
-                <div className="flex items-end gap-3">
-                  <div className="flex-1 relative">
-                    <textarea
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
+            <div className="p-3 sm:p-4 border-t border-white/5 bg-gradient-to-r from-slate-900/50 to-slate-950/50 backdrop-blur-sm">
+              <div className="w-full mx-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
+                  <div className="flex-1 w-full">
+                    <RichEditor
+                      value={messageHtml}
+                      onChange={setMessageHtml}
+                      onBackgroundColorChange={setMessageBgColor}
                       placeholder="Type your message..."
-                      rows={1}
-                      className="w-full px-4 py-3 bg-slate-800/50 border border-white/10 rounded-2xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500/50 transition-all resize-none custom-scrollbar max-h-32"
-                      style={{ minHeight: '48px' }}
+                      className="w-full"
                     />
                   </div>
                   <button
                     onClick={handleSendMessage}
-                    disabled={!messageText.trim()}
-                    className="p-3 bg-gradient-to-br from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-fuchsia-500/20 hover:shadow-fuchsia-500/40 disabled:shadow-none"
+                    disabled={!messageHtml.trim() || sendEmailReply.isPending}
+                    className="self-end sm:self-auto p-3 sm:p-3 bg-gradient-to-br from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-fuchsia-500/20 hover:shadow-fuchsia-500/40 disabled:shadow-none hover:scale-105 active:scale-95 w-full sm:w-12 h-12 flex items-center justify-center gap-2"
                   >
-                    <Send className="w-5 h-5" />
+                    {sendEmailReply.isPending ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="sm:hidden text-sm font-medium">Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        <span className="sm:hidden text-sm font-medium">Send Message</span>
+                      </>
+                    )}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2 text-center">
-                  Press Enter to send, Shift + Enter for new line
-                </p>
+
+                {/* Success/Error Messages */}
+                {sendEmailReply.isSuccess && (
+                  <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <p className="text-sm text-green-400 font-medium">Message sent successfully!</p>
+                  </div>
+                )}
+
+                {sendEmailReply.isError && (
+                  <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <p className="text-sm text-red-400 font-medium">Failed to send message. Please try again.</p>
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 flex items-center justify-center mb-6">
-              <MessageSquare className="w-12 h-12 text-fuchsia-500/50" />
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-6 sm:p-8">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 flex items-center justify-center mb-6 animate-pulse">
+              <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 text-fuchsia-500/50" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-300 mb-2">Select a conversation</h3>
-            <p className="text-sm text-slate-500 text-center max-w-sm">
+            <h3 className="text-lg sm:text-xl font-semibold text-slate-300 mb-2 text-center">Select a conversation</h3>
+            <p className="text-xs sm:text-sm text-slate-500 text-center max-w-xs sm:max-w-sm px-4">
               Choose a chat from the sidebar to view the full conversation and send messages
             </p>
           </div>

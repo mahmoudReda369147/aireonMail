@@ -9,6 +9,7 @@ import { useToast } from '../components/common/Toast';
 import { generateEmailDraft, improveDraft } from '../services/geminiService';
 import { EmailTemplate } from '../types';
 import { useGmailSend } from '../apis/hooks';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const ComposePage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export const ComposePage: React.FC = () => {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const { setBgColor: setBodyBgColor, wrapWithFullHTML } = useEditorBackgroundColor();
   const [isScheduling, setIsScheduling] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
 
@@ -60,7 +62,7 @@ export const ComposePage: React.FC = () => {
         await gmailSend.mutateAsync({
             to: to.trim(),
             subject: subject.trim(),
-            body: body,
+            body: wrapWithFullHTML(body),
             cc: undefined, // Optional - can be added later
             bcc: undefined // Optional - can be added later
         });
@@ -236,10 +238,11 @@ export const ComposePage: React.FC = () => {
                 </div>
 
                 <div className="flex-1 flex flex-col min-h-0 relative p-8 pt-6">
-                    <RichEditor 
-                        value={body} 
-                        onChange={setBody} 
-                        className="flex-1 min-h-[300px] border-none bg-transparent shadow-none !ring-0 !p-0" 
+                    <RichEditor
+                        value={body}
+                        onChange={setBody}
+                        onBackgroundColorChange={setBodyBgColor}
+                        className="flex-1 min-h-[300px] border-none bg-transparent shadow-none !ring-0 !p-0"
                         placeholder="Start writing your masterpiece..."
                     />
                     
@@ -254,23 +257,24 @@ export const ComposePage: React.FC = () => {
                 </div>
 
                 {/* Footer Toolbar */}
-                <div className="p-4 bg-[#0F1020]/50 border-t border-white/5 backdrop-blur-md flex items-center justify-between">
-                     <div className="flex items-center gap-2">
+                <div className="p-3 sm:p-4 bg-[#0F1020]/50 border-t border-white/5 backdrop-blur-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                     <div className="hidden sm:flex items-center gap-2">
                         {/* Formatting tools hint could go here */}
                      </div>
 
-                     <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <button 
+                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-auto">
+                            <button
                                 onClick={() => setIsScheduling(!isScheduling)}
-                                className={`p-3 rounded-xl border transition-all ${
-                                    isScheduling 
-                                    ? 'bg-fuchsia-500/10 border-fuchsia-500 text-fuchsia-400' 
+                                className={`p-3 rounded-xl border transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${
+                                    isScheduling
+                                    ? 'bg-fuchsia-500/10 border-fuchsia-500 text-fuchsia-400'
                                     : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/5'
                                 }`}
                                 title="Schedule Send"
                             >
                                 <Clock className="w-5 h-5" />
+                                <span className="sm:hidden font-medium text-sm">Schedule Send</span>
                             </button>
                             
                             {isScheduling && (
@@ -291,13 +295,13 @@ export const ComposePage: React.FC = () => {
                             )}
                         </div>
 
-                        <button 
-                            onClick={handleSend} 
-                            className="group relative px-8 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(192,38,211,0.3)] hover:shadow-[0_0_30px_rgba(192,38,211,0.5)] transition-all active:scale-95 flex items-center gap-2 overflow-hidden"
+                        <button
+                            onClick={handleSend}
+                            className="group relative px-4 sm:px-8 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(192,38,211,0.3)] hover:shadow-[0_0_30px_rgba(192,38,211,0.5)] transition-all active:scale-95 hover:scale-105 flex items-center justify-center gap-2 overflow-hidden w-full sm:w-auto"
                         >
                             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-md"></div>
-                            <span className="relative z-10">{t('compose.send')}</span>
                             <Send className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform" />
+                            <span className="relative z-10">{t('compose.send')}</span>
                         </button>
                      </div>
                 </div>

@@ -58,20 +58,22 @@ const extensions = [
 interface RichEditorProps {
   value: string;
   onChange: (html: string) => void;
+  onBackgroundColorChange?: (color: string) => void;
   placeholder?: string;
   className?: string;
 }
 
 interface MenuBarProps {
   editor: Editor;
+  editorBgColor: string;
+  setEditorBgColor: (color: string) => void;
 }
 
-function MenuBar({ editor }: MenuBarProps) {
+function MenuBar({ editor, editorBgColor, setEditorBgColor }: MenuBarProps) {
   const [showColorPicker, setShowColorPicker] = React.useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = React.useState(false);
   const [showBgColorPicker, setShowBgColorPicker] = React.useState(false);
   const [showFontPicker, setShowFontPicker] = React.useState(false);
-  const [editorBgColor, setEditorBgColor] = React.useState('#0F1020');
   const [linkUrl, setLinkUrl] = React.useState('');
   const [showLinkInput, setShowLinkInput] = React.useState(false);
 
@@ -320,10 +322,6 @@ function MenuBar({ editor }: MenuBarProps) {
                 key={color}
                 onClick={() => {
                   setEditorBgColor(color);
-                  const editorElement = editor.view.dom.closest('.tiptap-editor');
-                  if (editorElement) {
-                    (editorElement as HTMLElement).style.backgroundColor = color;
-                  }
                   setShowBgColorPicker(false);
                 }}
                 className="w-8 h-8 rounded border border-glass-border hover:scale-110 transition-transform"
@@ -484,9 +482,12 @@ function MenuBar({ editor }: MenuBarProps) {
 export const RichEditor: React.FC<RichEditorProps> = ({
   value,
   onChange,
+  onBackgroundColorChange,
   placeholder = 'Start typing...',
   className = ''
 }) => {
+  const [editorBgColor, setEditorBgColor] = React.useState('#0F1020');
+
   const editor = useEditor({
     extensions,
     content: value,
@@ -499,6 +500,13 @@ export const RichEditor: React.FC<RichEditorProps> = ({
       },
     },
   });
+
+  // Notify parent when background color changes
+  React.useEffect(() => {
+    if (onBackgroundColorChange) {
+      onBackgroundColorChange(editorBgColor);
+    }
+  }, [editorBgColor, onBackgroundColorChange]);
 
   // Update editor content when value changes externally
   React.useEffect(() => {
@@ -513,8 +521,8 @@ export const RichEditor: React.FC<RichEditorProps> = ({
 
   return (
     <div className={`flex flex-col bg-glass backdrop-blur-md border border-glass-border rounded-2xl overflow-hidden ${className}`}>
-      <MenuBar editor={editor} />
-      <div className="relative">
+      <MenuBar editor={editor} editorBgColor={editorBgColor} setEditorBgColor={setEditorBgColor} />
+      <div className="relative" style={{ backgroundColor: editorBgColor }}>
         {!value && (
           <div className="absolute top-4 left-4 text-slate-500 pointer-events-none select-none text-sm">
             {placeholder}
