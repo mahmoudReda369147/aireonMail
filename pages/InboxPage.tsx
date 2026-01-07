@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppContext } from '../contexts/AppContext';
 import { EmailListItem } from '../components/EmailListItem';
 import { EmailDetail } from '../components/EmailDetail';
 import { Sparkles, Inbox, Search, Loader2 } from 'lucide-react';
-import { useGmailEmails } from '../apis/hooks';
+import { useGmailEmails, useDeleteAllEmails } from '../apis/hooks';
 import { GmailEmail } from '../apis/services';
 import { mapGmailEmailToEmail } from '../apis/services';
+import { useToast } from '../components/common/Toast';
 
 export const InboxPage: React.FC = () => {
   const { t } = useAppContext();
   const { id } = useParams<{id: string}>();
-  
+  const { showToast } = useToast();
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
+
   // Use Gmail emails hook with infinite scroll
   const {
     data,
@@ -21,6 +24,8 @@ export const InboxPage: React.FC = () => {
     isLoading,
     error,
   } = useGmailEmails();
+
+  const deleteAllEmailsMutation = useDeleteAllEmails();
 
   // Flatten all pages to get all emails and map to app format
   const emails = data?.pages.flatMap(page => page.data.map(mapGmailEmailToEmail)) || [];
@@ -37,6 +42,20 @@ export const InboxPage: React.FC = () => {
     }
   };
 
+  // Handle cleanup confirmation
+  const handleCleanupConfirm = () => {
+    deleteAllEmailsMutation.mutate(undefined, {
+      onSuccess: () => {
+        showToast('All emails deleted successfully', 'success');
+        setShowCleanupConfirm(false);
+      },
+      onError: (error) => {
+        showToast(error instanceof Error ? error.message : 'Failed to delete emails', 'error');
+        setShowCleanupConfirm(false);
+      },
+    });
+  };
+
   return (
     <>
       {/* List Pane */}
@@ -46,9 +65,38 @@ export const InboxPage: React.FC = () => {
                  <Inbox className="w-5 h-5 text-cyan-500" />
                  {t('inbox.title')}
              </h2>
-             <button className="text-xs font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                 <Sparkles className="w-3 h-3" /> {t('inbox.cleanup')}
-             </button>
+             <div className="relative">
+                 {showCleanupConfirm ? (
+                     <div className="flex items-center gap-2 animate-in fade-in duration-150">
+                         <span className="text-xs text-slate-300">Delete all?</span>
+                         <button
+                             onClick={handleCleanupConfirm}
+                             disabled={deleteAllEmailsMutation.isPending}
+                             className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                         >
+                             {deleteAllEmailsMutation.isPending ? (
+                                 <Loader2 className="w-3 h-3 animate-spin" />
+                             ) : (
+                                 'Yes'
+                             )}
+                         </button>
+                         <button
+                             onClick={() => setShowCleanupConfirm(false)}
+                             disabled={deleteAllEmailsMutation.isPending}
+                             className="px-3 py-1.5 bg-white/10 text-slate-300 text-xs font-medium rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
+                         >
+                             No
+                         </button>
+                     </div>
+                 ) : (
+                     <button
+                         onClick={() => setShowCleanupConfirm(true)}
+                         className="text-xs font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                     >
+                         <Sparkles className="w-3 h-3" /> {t('inbox.cleanup')}
+                     </button>
+                 )}
+             </div>
          </div>
          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar" onScroll={handleScroll}>
              {isLoading ? (

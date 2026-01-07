@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail, fetchArchivedEmails, ArchivedEmailsResponse, fetchGmailThreads, GmailThreadsResponse, fetchGmailThreadById, SingleThreadResponse } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail, fetchArchivedEmails, ArchivedEmailsResponse, fetchGmailThreads, GmailThreadsResponse, fetchGmailThreadById, SingleThreadResponse, fetchEmailCounts, EmailCountsResponse, fetchNotifications, NotificationsResponse, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllEmails } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -67,7 +67,7 @@ export const useGmailEmails = () => {
       return lastPage.meta.hasMore ? lastPage.meta.nextPageToken : undefined;
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 1, // 5 minutes
   });
 };
 
@@ -104,6 +104,7 @@ export const useCreateTemplate = () => {
     mutationFn: (data: CreateTemplateRequest) => createTemplate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [USER_TEMPLATES_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -116,6 +117,7 @@ export const useUpdateTemplate = () => {
     mutationFn: ({ id, data }: { id: string; data: UpdateTemplateRequest }) => updateTemplate(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [USER_TEMPLATES_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -128,6 +130,7 @@ export const useDeleteTemplate = () => {
     mutationFn: (id: string) => deleteTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [USER_TEMPLATES_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -142,6 +145,7 @@ export const useDeleteGmailEmail = () => {
     onSuccess: () => {
       // Invalidate and refetch Gmail emails after deleting
       queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -196,6 +200,8 @@ export const useGmailSentEmailsPage = (pageToken?: string) => {
 
 // Hook for sending Gmail emails
 export const useGmailSend = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationKey: [GMAIL_SEND_MUTATION_KEY],
     mutationFn: async (emailData: {
@@ -209,25 +215,34 @@ export const useGmailSend = () => {
       return response.data;
     },
     onSuccess: () => {
-      // Optionally invalidate email queries to refresh the inbox
-      // This could be added later if needed
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
 
 // Hook for creating calendar task
 export const useCreateCalendarTask = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationKey: [CALENDAR_TASK_MUTATION_KEY],
     mutationFn: (data: CalendarTaskRequest) => createCalendarTask(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
   });
 };
 
 // Hook for saving gmail summary
 export const useSaveGmailSummary = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationKey: [GMAIL_SUMMARY_MUTATION_KEY],
     mutationFn: (data: GmailSummaryRequest) => saveGmailSummary(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
   });
 };
 
@@ -262,6 +277,7 @@ export const useCreateTask = () => {
     onSuccess: () => {
       // Invalidate and refetch tasks after creating a new one
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -276,6 +292,7 @@ export const useUpdateTask = () => {
     onSuccess: () => {
       // Invalidate and refetch tasks after updating
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -290,6 +307,7 @@ export const useDeleteTask = () => {
     onSuccess: () => {
       // Invalidate and refetch tasks after deleting
       queryClient.invalidateQueries({ queryKey: [TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -311,6 +329,7 @@ export const useUpdateCalendarTask = () => {
       updateCalendarTask(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CALENDAR_TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -321,6 +340,7 @@ export const useDeleteCalendarTask = () => {
     mutationFn: (id: string) => deleteCalendarTask(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CALENDAR_TASKS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -335,6 +355,7 @@ export const useSendEmailReply = () => {
       // Invalidate and refetch Gmail threads after sending reply
       queryClient.invalidateQueries({ queryKey: [GMAIL_THREADS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [GMAIL_THREAD_BY_ID_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -364,6 +385,7 @@ export const useUpdateBot = () => {
     onSuccess: () => {
       // Invalidate and refetch bots after updating
       queryClient.invalidateQueries({ queryKey: [BOTS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -377,6 +399,7 @@ export const useCreateBot = () => {
     onSuccess: () => {
       // Invalidate and refetch bots after creating
       queryClient.invalidateQueries({ queryKey: [BOTS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
 };
@@ -427,4 +450,90 @@ export const useGmailThreadById = (threadId: string | undefined) => {
   }, [result.data, result.isLoading, queryClient]);
 
   return result;
+};
+
+// React Query key for email counts
+export const EMAIL_COUNTS_QUERY_KEY = 'email-counts';
+
+// Hook for fetching email counts
+export const useEmailCounts = () => {
+  return useQuery<EmailCountsResponse>({
+    queryKey: [EMAIL_COUNTS_QUERY_KEY],
+    queryFn: fetchEmailCounts,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
+  });
+};
+
+// React Query key for notifications
+export const NOTIFICATIONS_QUERY_KEY = 'notifications';
+
+// Hook for fetching notifications with infinite scroll pagination
+export const useNotifications = () => {
+  return useInfiniteQuery<NotificationsResponse>({
+    queryKey: [NOTIFICATIONS_QUERY_KEY],
+    queryFn: ({ pageParam = 1 }) => fetchNotifications(pageParam as number, 10),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.meta;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 1, // 1 minutes
+    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
+  });
+};
+
+// Hook for marking a notification as read
+export const useMarkNotificationAsRead = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for marking all notifications as read
+export const useMarkAllNotificationsAsRead = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => markAllNotificationsAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for deleting a notification
+export const useDeleteNotification = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for deleting all emails (cleanup)
+export const useDeleteAllEmails = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => deleteAllEmails(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [GMAIL_THREADS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
 };

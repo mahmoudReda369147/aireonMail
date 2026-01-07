@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save, Sparkles, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, LayoutTemplate, Loader2, Tag, FileText } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -8,6 +8,7 @@ import { useToast } from '../components/common/Toast';
 import { generateEmailDraft, improveDraft } from '../services/geminiService';
 import { EmailTemplate } from '../types';
 import { useCreateTemplate, useUpdateTemplate } from '../apis/hooks';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const TemplateEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,22 +20,48 @@ export const TemplateEditorPage: React.FC = () => {
 
   const editingTemplate = location.state?.template as EmailTemplate | undefined;
 
+  const {
+    bgColor: templateBgColor,
+    setBgColor: setTemplateBgColor,
+    wrapWithFullHTML,
+    extractBgColorFromHTML,
+    unwrapHTML
+  } = useEditorBackgroundColor();
+
   // Form State
   const [name, setName] = useState(editingTemplate?.name || '');
   const [category, setCategory] = useState(editingTemplate?.category || '');
   const [subject, setSubject] = useState(editingTemplate?.subject || '');
-  const [body, setBody] = useState(editingTemplate?.body || '');
+  const [body, setBody] = useState('');
 
   // AI Assistant State
   const [showAi, setShowAi] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  // Load and unwrap existing template body when editing
+  useEffect(() => {
+    if (editingTemplate?.body) {
+      // Extract background color from existing template
+      const extractedColor = extractBgColorFromHTML(editingTemplate.body);
+      if (extractedColor) {
+        setTemplateBgColor(extractedColor);
+      }
+
+      // Unwrap HTML to get clean content for editing
+      const unwrappedBody = unwrapHTML(editingTemplate.body);
+      setBody(unwrappedBody);
+    }
+  }, [editingTemplate, extractBgColorFromHTML, setTemplateBgColor, unwrapHTML]);
+
   const handleSave = async () => {
     if(!name || !subject || !body) {
         showToast("Please fill in Name, Subject and Body", "error");
         return;
     }
+
+    // Wrap the body with full HTML including background color
+    const wrappedBody = wrapWithFullHTML(body);
 
     if (editingTemplate) {
         try {
@@ -43,7 +70,7 @@ export const TemplateEditorPage: React.FC = () => {
                 data: {
                     name,
                     subject,
-                    body,
+                    body: wrappedBody,
                     categure: category || 'General',
                     isFavorets: false // Default to false since we don't have this field in the UI
                 }
@@ -59,7 +86,7 @@ export const TemplateEditorPage: React.FC = () => {
             await createTemplateMutation.mutateAsync({
                 name,
                 subject,
-                body,
+                body: wrappedBody,
                 categure: category || 'General'
             });
             showToast("New template created", "success");
@@ -112,7 +139,7 @@ export const TemplateEditorPage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full overflow-hidden relative">
+    <div className="flex h-full relative overflow-hidden">
         {/* Main Editor Area */}
         <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto custom-scrollbar">
             {/* Header */}
@@ -120,7 +147,7 @@ export const TemplateEditorPage: React.FC = () => {
                 <button onClick={() => navigate('/templates')} className="text-slate-400 hover:text-white flex items-center gap-2 transition-colors">
                     <ArrowLeft className="w-5 h-5" /> Back
                 </button>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 h-full">
                     <h1 className="text-xl font-bold text-white flex items-center gap-2 hidden md:flex">
                         <LayoutTemplate className="w-5 h-5 text-fuchsia-500" />
                         {editingTemplate ? 'Edit Template' : 'New Template'}
@@ -140,7 +167,7 @@ export const TemplateEditorPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-glass border border-glass-border rounded-[2rem] flex-1 flex flex-col backdrop-blur-xl shadow-2xl relative overflow-hidden min-h-[500px]">
+            <div className="bg-glass border border-glass-border rounded-[2rem] flex-1 flex flex-col backdrop-blur-xl shadow-2xl relative  ">
                 
                 {/* Form Fields Section */}
                 <div className="p-8 pb-0 space-y-5">
@@ -181,11 +208,13 @@ export const TemplateEditorPage: React.FC = () => {
                 </div>
 
                 {/* Editor Section */}
-                <div className="flex-1 flex flex-col min-h-0 relative p-8 pt-6">
-                    <RichEditor 
-                        value={body} 
-                        onChange={setBody} 
-                        className="flex-1 min-h-[300px] border-none bg-transparent shadow-none !ring-0 !p-0" 
+                <div className="flex-1 flex flex-col  relative p-8 pt-6 h-full">
+                    <RichEditor
+                        value={body}
+                        onChange={setBody}
+                        onBackgroundColorChange={setTemplateBgColor}
+                        initialBackgroundColor={templateBgColor}
+                        className="flex-1 border-none bg-transparent shadow-none !ring-0 !p-0"
                         placeholder="Start designing your template content..."
                     />
                     
@@ -208,7 +237,7 @@ export const TemplateEditorPage: React.FC = () => {
 
                      <button 
                         onClick={handleSave} 
-                        className="group relative px-8 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(192,38,211,0.3)] hover:shadow-[0_0_30px_rgba(192,38,211,0.5)] transition-all active:scale-95 flex items-center gap-2 overflow-hidden"
+                        className="group relative px-8 py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(192,38,211,0.3)] hover:shadow-[0_0_30px_rgba(192,38,211,0.5)] transition-all active:scale-95 flex items-center gap-2 "
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-md"></div>
                         <span className="relative z-10">Save Template</span>

@@ -5,11 +5,13 @@ import { RichEditor } from '../components/common/RichEditor';
 import { Bot, Zap, MessageSquare, Wand2, Loader2, ArrowLeft, Plus, X } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
 import { useCreateBot } from '../apis/hooks';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const CreateBotPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const createBotMutation = useCreateBot();
+  const { setBgColor: setTemplateBgColor, wrapWithFullHTML } = useEditorBackgroundColor();
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
@@ -78,6 +80,7 @@ export const CreateBotPage: React.FC = () => {
       const response = await createBotMutation.mutateAsync({
         ...newBotData,
         emails: emailList, // Send as array of strings
+        templete: wrapWithFullHTML(newBotData.templete),
       });
       showToast('Bot created successfully', 'success');
 
@@ -309,6 +312,7 @@ export const CreateBotPage: React.FC = () => {
                 <RichEditor
                   value={newBotData.templete}
                   onChange={html => setNewBotData({ ...newBotData, templete: html })}
+                  onBackgroundColorChange={setTemplateBgColor}
                   placeholder="Create your email template with HTML formatting..."
                   className="bg-black/20"
                 />

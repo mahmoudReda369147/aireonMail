@@ -10,12 +10,21 @@ import { Bot, Zap, Clock, MessageSquare, CheckCircle, PauseCircle, PlayCircle, S
 import { useToast } from '../components/common/Toast';
 import { useBots, useUpdateBot, useUserTemplates } from '../apis/hooks';
 import { BotData } from '../apis/services';
+import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const ConversationAutomationPage: React.FC = () => {
   const { emails, threadAutomations, updateThreadAutomation } = useAppContext();
   const { id, botId } = useParams<{id: string; botId?: string}>();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const {
+    bgColor: templateBgColor,
+    setBgColor: setTemplateBgColor,
+    wrapWithFullHTML: wrapTemplateBgColor,
+    extractBgColorFromHTML: extractTemplateBgColor,
+    unwrapHTML: unwrapTemplateHTML
+  } = useEditorBackgroundColor();
+  const { setBgColor: setPromptBgColor, wrapWithFullHTML: wrapPromptBgColor } = useEditorBackgroundColor();
 
   // Bots data
   const {
@@ -67,6 +76,16 @@ export const ConversationAutomationPage: React.FC = () => {
       const bot = allBots.find(b => b.id === botId);
       if (bot) {
         setSelectedBot(bot);
+
+        // Extract background color from template if it exists
+        const extractedColor = extractTemplateBgColor(bot.templete || '');
+        if (extractedColor) {
+          setTemplateBgColor(extractedColor);
+        }
+
+        // Unwrap the HTML to get clean content for editing
+        const unwrappedTemplate = unwrapTemplateHTML(bot.templete || '');
+
         // Initialize editable settings
         setEditableBotSettings({
           isactive: bot.isactive,
@@ -76,13 +95,13 @@ export const ConversationAutomationPage: React.FC = () => {
           isautoExtractTaskes: bot.isautoExtractTaskes,
           isautoExtractMettengs: bot.isautoExtractMettengs,
           userPrompet: bot.userPrompet || '',
-          templete: bot.templete || '',
+          templete: unwrappedTemplate,
           emails: bot.emails || [],
         });
         setEmailList(bot.emails || []);
       }
     }
-  }, [botId, allBots]);
+  }, [botId, allBots, extractTemplateBgColor, setTemplateBgColor, unwrapTemplateHTML]);
 
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -244,7 +263,10 @@ export const ConversationAutomationPage: React.FC = () => {
     try {
       const response = await updateBotMutation.mutateAsync({
         id: selectedBot.id,
-        data: editableBotSettings,
+        data: {
+          ...editableBotSettings,
+          templete: wrapTemplateBgColor(editableBotSettings.templete),
+        },
       });
 
       // Update the selected bot with new data
@@ -691,6 +713,8 @@ export const ConversationAutomationPage: React.FC = () => {
                               <RichEditor
                                  value={editableBotSettings.templete}
                                  onChange={html => updateBotSetting('templete', html)}
+                                 onBackgroundColorChange={setTemplateBgColor}
+                                 initialBackgroundColor={templateBgColor}
                                  placeholder="Create your email template with HTML formatting..."
                                  className="bg-black/20"
                               />
@@ -903,9 +927,10 @@ export const ConversationAutomationPage: React.FC = () => {
                                      />
                                 </div>
                                 <div className="relative">
-                                    <RichEditor 
+                                    <RichEditor
                                         value={config.customPrompt}
                                         onChange={html => updateConfig('customPrompt', html)}
+                                        onBackgroundColorChange={setPromptBgColor}
                                         placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
                                         className="bg-black/20"
                                     />

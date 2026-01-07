@@ -1,11 +1,14 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sidebar } from './Sidebar';
-import { Menu, Search, Mic, Bell, Globe, SlidersHorizontal, Paperclip, Calendar, X, CheckCircle, Info, AlertTriangle, Trash2, CheckCheck, Snowflake } from 'lucide-react';
+import { Menu, Search, Mic, Bell, Globe, SlidersHorizontal, Paperclip, Calendar, X, CheckCircle, Info, AlertTriangle, CheckCheck, Snowflake, Loader2, Trash2 } from 'lucide-react';
 import { Input } from './common/Input';
 import { LiveAssistant } from './LiveAssistant';
 import { SnowEffect } from './SnowEffect';
 import { useAppContext } from '../contexts/AppContext';
+import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useDeleteNotification, useUpdateCalendarTask, useUpdateTask, NOTIFICATIONS_QUERY_KEY } from '../apis/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import { NotificationData } from '../apis/services';
 
 export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,16 +16,37 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
   const [showFilters, setShowFilters] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSnowing, setIsSnowing] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const notificationScrollRef = useRef<HTMLDivElement>(null);
 
-  const { emails, language, setLanguage, t, searchQuery, setSearchQuery, searchFilters, setSearchFilters, notifications, markAllNotificationsRead, deleteNotification } = useAppContext();
+  const { emails, language, setLanguage, t, searchQuery, setSearchQuery, searchFilters, setSearchFilters } = useAppContext();
+
+  // Notifications from API
+  const {
+    data: notificationsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingNotifications,
+  } = useNotifications();
+
+  const queryClient = useQueryClient();
+  const markAsReadMutation = useMarkNotificationAsRead();
+  const markAllAsReadMutation = useMarkAllNotificationsAsRead();
+  const deleteNotificationMutation = useDeleteNotification();
+  const updateCalendarTaskMutation = useUpdateCalendarTask();
+  const updateTaskMutation = useUpdateTask();
+
+  // Flatten all pages into a single array
+  const notifications = notificationsData?.pages.flatMap((page) => page.data) || [];
+  const unreadNotifications = notificationsData?.pages[0]?.meta.unreadCount || 0;
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');
   };
 
   const activeFiltersCount = [searchFilters.from, searchFilters.to, searchFilters.dateStart, searchFilters.hasAttachments].filter(Boolean).length;
-  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   const clearFilters = () => {
       setSearchFilters({
@@ -47,11 +71,104 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getNotificationIcon = (type: string) => {
-    switch(type) {
-        case 'success': return <CheckCircle className="w-5 h-5 text-green-400" />;
-        case 'alert': return <AlertTriangle className="w-5 h-5 text-red-400" />;
-        default: return <Info className="w-5 h-5 text-blue-400" />;
+  // Get notification icon based on isActionDone and priority
+  const getNotificationIcon = (notification: NotificationData) => {
+    if (notification.isActionDone) {
+      // Success icon for action done
+      return <CheckCircle className="w-5 h-5 text-green-400" />;
+    } else if (notification.priority === 'high') {
+      // Alert icon for high priority not done
+      return <AlertTriangle className="w-5 h-5 text-red-400" />;
+    } else {
+      // Info icon for low/medium priority not done
+      return <Info className="w-5 h-5 text-blue-400" />;
+    }
+  };
+
+  // Format timestamp to relative time
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Handle scroll for infinite loading
+  const handleNotificationScroll = useCallback(() => {
+    if (!notificationScrollRef.current || !hasNextPage || isFetchingNextPage) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = notificationScrollRef.current;
+
+    // Load more when scrolled to 80% of the container
+    if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Handle marking notification as read
+  const handleNotificationClick = (notification: NotificationData) => {
+    if (!notification.isRead) {
+      markAsReadMutation.mutate(notification.id);
+    }
+  };
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = () => {
+    markAllAsReadMutation.mutate();
+  };
+
+  // Handle delete notification click (show confirmation)
+  const handleDeleteClick = (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation();
+    setNotificationToDelete(notificationId);
+  };
+
+  // Handle confirm delete
+  const handleConfirmDelete = () => {
+    if (notificationToDelete) {
+      deleteNotificationMutation.mutate(notificationToDelete);
+      setNotificationToDelete(null);
+    }
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setNotificationToDelete(null);
+  };
+
+  // Handle mark task as complete (for both calendarTask and task types)
+  const handleMarkTaskComplete = (e: React.MouseEvent, notification: NotificationData) => {
+    e.stopPropagation();
+    if (!notification.taskId) return;
+
+    if (notification.type === 'calendarTask') {
+      // Update calendar task status to completed
+      updateCalendarTaskMutation.mutate(
+        { id: notification.taskId, data: { status: 'completed' } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_QUERY_KEY] });
+          },
+        }
+      );
+    } else if (notification.type === 'task') {
+      // Update regular task isDoneTask to true
+      updateTaskMutation.mutate(
+        { id: notification.taskId, data: { isDoneTask: true } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_QUERY_KEY] });
+          },
+        }
+      );
     }
   };
 
@@ -180,7 +297,7 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
             
             {/* Notifications */}
             <div className="relative" ref={notificationRef}>
-                <button 
+                <button
                     onClick={() => setShowNotifications(!showNotifications)}
                     className={`relative p-3 rounded-full transition-all ${showNotifications ? 'bg-white/10 text-white' : 'bg-glass border border-glass-border text-slate-300 hover:text-white'}`}
                 >
@@ -198,15 +315,24 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                                 Notifications
                                 {unreadNotifications > 0 && <span className="text-xs bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded-full">{unreadNotifications}</span>}
                             </h3>
-                            {notifications.length > 0 && (
-                                <button onClick={markAllNotificationsRead} className="text-xs text-slate-400 hover:text-white flex items-center gap-1" title="Mark all as read">
+                            {notifications.length > 0 && unreadNotifications > 0 && (
+                                <button onClick={handleMarkAllAsRead} className="text-xs text-slate-400 hover:text-white flex items-center gap-1" title="Mark all as read">
                                     <CheckCheck className="w-4 h-4" /> Mark all read
                                 </button>
                             )}
                         </div>
-                        
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                            {notifications.length === 0 ? (
+
+                        <div
+                            ref={notificationScrollRef}
+                            onScroll={handleNotificationScroll}
+                            className="max-h-[300px] overflow-y-auto custom-scrollbar"
+                        >
+                            {isLoadingNotifications ? (
+                                <div className="p-8 text-center text-slate-500">
+                                    <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-fuchsia-500" />
+                                    <p className="text-sm">Loading notifications...</p>
+                                </div>
+                            ) : notifications.length === 0 ? (
                                 <div className="p-8 text-center text-slate-500">
                                     <Bell className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                     <p className="text-sm">No new notifications</p>
@@ -214,32 +340,90 @@ export const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) =
                             ) : (
                                 <div>
                                     {notifications.map(notification => (
-                                        <div 
-                                            key={notification.id} 
-                                            className={`p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors group relative ${notification.read ? 'opacity-70' : 'bg-white/[0.02]'}`}
+                                        <div
+                                            key={notification.id}
+                                            onClick={() => handleNotificationClick(notification)}
+                                            className={`p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors group relative cursor-pointer ${notification.isRead ? 'opacity-70' : 'bg-white/[0.02]'}`}
                                         >
+                                            {/* Delete confirmation overlay */}
+                                            {notificationToDelete === notification.id && (
+                                                <div className="absolute inset-0 bg-[#1A1B2E]/95 backdrop-blur-sm z-10 flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                                                    <span className="text-xs text-slate-300 mr-2">Delete?</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleConfirmDelete(); }}
+                                                        className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/30 transition-colors"
+                                                    >
+                                                        Yes
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleCancelDelete(); }}
+                                                        className="px-3 py-1.5 bg-white/10 text-slate-300 text-xs font-medium rounded-lg hover:bg-white/20 transition-colors"
+                                                    >
+                                                        No
+                                                    </button>
+                                                </div>
+                                            )}
+
                                             <div className="flex gap-3">
-                                                <div className={`mt-1 shrink-0 ${notification.read ? 'opacity-50' : ''}`}>
-                                                    {getNotificationIcon(notification.type)}
+                                                <div className={`mt-1 shrink-0 ${notification.isRead ? 'opacity-50' : ''}`}>
+                                                    {getNotificationIcon(notification)}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start mb-0.5">
-                                                        <h4 className={`text-sm ${notification.read ? 'font-medium text-slate-300' : 'font-bold text-white'}`}>{notification.title}</h4>
-                                                        <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">{notification.timestamp}</span>
+                                                        <h4 className={`text-sm ${notification.isRead ? 'font-medium text-slate-300' : 'font-bold text-white'}`}>{notification.title}</h4>
+                                                        <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">{formatTimestamp(notification.createdAt)}</span>
                                                     </div>
-                                                    <p className="text-xs text-slate-400 leading-relaxed">{notification.message}</p>
+                                                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{notification.description}</p>
                                                 </div>
                                             </div>
-                                            
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); deleteNotification(notification.id); }}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full backdrop-blur-sm"
-                                                title="Dismiss"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
+
+                                            {!notification.isRead && (
+                                                <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-fuchsia-500 rounded-full"></div>
+                                            )}
+
+                                            {/* Action buttons */}
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {/* Mark Complete button for calendarTask and task notifications */}
+                                                {(notification.type === 'calendarTask' || notification.type === 'task') && !notification.isActionDone && notification.taskId && (
+                                                    <button
+                                                        onClick={(e) => handleMarkTaskComplete(e, notification)}
+                                                        disabled={updateCalendarTaskMutation.isPending || updateTaskMutation.isPending}
+                                                        className="p-2 text-slate-600 hover:text-green-400 bg-black/50 rounded-full backdrop-blur-sm disabled:opacity-50"
+                                                        title="Mark as complete"
+                                                    >
+                                                        {(updateCalendarTaskMutation.isPending || updateTaskMutation.isPending) ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <CheckCircle className="w-3 h-3" />
+                                                        )}
+                                                    </button>
+                                                )}
+                                                {/* Delete button */}
+                                                <button
+                                                    onClick={(e) => handleDeleteClick(e, notification.id)}
+                                                    className="p-2 text-slate-600 hover:text-red-400 bg-black/50 rounded-full backdrop-blur-sm"
+                                                    title="Delete notification"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
+
+                                    {/* Loading more indicator */}
+                                    {isFetchingNextPage && (
+                                        <div className="flex items-center justify-center py-4">
+                                            <Loader2 className="w-5 h-5 text-fuchsia-500 animate-spin" />
+                                            <span className="ml-2 text-sm text-slate-400">Loading more...</span>
+                                        </div>
+                                    )}
+
+                                    {/* End of list indicator */}
+                                    {!hasNextPage && notifications.length > 0 && (
+                                        <div className="text-center py-3 text-xs text-slate-500">
+                                            All notifications loaded
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -826,3 +826,112 @@ export const fetchGmailThreadById = async (threadId: string): Promise<SingleThre
   const response = await get<SingleThreadResponse>(`/gmail/threads/${threadId}`);
   return response.data;
 };
+
+// Email counts interface
+export interface EmailCounts {
+  unread: number;
+  sent: number;
+  archived: number;
+  trash: number;
+  incompleteTasks: number;
+  incompletedCalendarTasks: number;
+  templates: number;
+  bots: number;
+  threadsWithUnreadFromOthers: number;
+  total: number;
+}
+
+export interface EmailCountsResponse {
+  success: boolean;
+  message: string;
+  data: EmailCounts;
+  meta: null;
+}
+
+// Fetch email counts
+export const fetchEmailCounts = async (): Promise<EmailCountsResponse> => {
+  const response = await get<EmailCountsResponse>('/gmail/unread-count');
+  return response.data;
+};
+
+// Notification interfaces
+export interface NotificationData {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+  taskId: string | null;
+  userId: string;
+  isRead: boolean;
+  isActionDone: boolean;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationsMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  unreadCount: number;
+}
+
+export interface NotificationsResponse {
+  success: boolean;
+  message: string;
+  data: NotificationData[];
+  meta: NotificationsMeta;
+}
+
+export interface MarkNotificationReadResponse {
+  success: boolean;
+  message: string;
+  data: NotificationData;
+}
+
+// Fetch notifications with pagination
+export const fetchNotifications = async (page: number = 1, limit: number = 10): Promise<NotificationsResponse> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+
+  const url = `/notifications?${params.toString()}`;
+  const response = await get<NotificationsResponse>(url);
+  return response.data;
+};
+
+// Mark notification as read
+export const markNotificationAsRead = async (id: string): Promise<MarkNotificationReadResponse> => {
+  const response = await put<MarkNotificationReadResponse>(`/notifications/${id}/read`, {});
+  return response.data;
+};
+
+// Mark all notifications as read
+export interface MarkAllNotificationsReadResponse {
+  success: boolean;
+  message: string;
+  data: {
+    updatedCount: number;
+    message: string;
+  };
+  meta: null;
+}
+
+export const markAllNotificationsAsRead = async (): Promise<MarkAllNotificationsReadResponse> => {
+  const response = await put<MarkAllNotificationsReadResponse>('/notifications/mark-all-read', {});
+  return response.data;
+};
+
+// Delete notification
+export const deleteNotification = async (id: string): Promise<{ success: boolean; message: string }> => {
+  const response = await del<{ success: boolean; message: string }>(`/notifications/${id}`);
+  return response.data;
+};
+
+// Delete all emails (cleanup)
+export const deleteAllEmails = async (): Promise<{ success: boolean; message: string }> => {
+  const response = await del<{ success: boolean; message: string }>('/gmail/emails/all');
+  return response.data;
+};

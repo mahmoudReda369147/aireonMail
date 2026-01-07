@@ -59,6 +59,7 @@ interface RichEditorProps {
   value: string;
   onChange: (html: string) => void;
   onBackgroundColorChange?: (color: string) => void;
+  initialBackgroundColor?: string;
   placeholder?: string;
   className?: string;
 }
@@ -483,10 +484,11 @@ export const RichEditor: React.FC<RichEditorProps> = ({
   value,
   onChange,
   onBackgroundColorChange,
+  initialBackgroundColor = '#0F1020',
   placeholder = 'Start typing...',
   className = ''
 }) => {
-  const [editorBgColor, setEditorBgColor] = React.useState('#0F1020');
+  const [editorBgColor, setEditorBgColor] = React.useState(initialBackgroundColor);
 
   const editor = useEditor({
     extensions,
@@ -500,6 +502,11 @@ export const RichEditor: React.FC<RichEditorProps> = ({
       },
     },
   });
+
+  // Update editor background color when initialBackgroundColor prop changes
+  React.useEffect(() => {
+    setEditorBgColor(initialBackgroundColor);
+  }, [initialBackgroundColor]);
 
   // Notify parent when background color changes
   React.useEffect(() => {

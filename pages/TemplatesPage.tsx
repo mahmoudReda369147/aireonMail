@@ -107,7 +107,7 @@ export const TemplatesPage: React.FC = () => {
                                 
                                 {/* Template Preview (HTML rendered safely) */}
                                 <div 
-                                    className="text-sm text-slate-500 line-clamp-3 mb-6 bg-black/20 p-3 rounded-xl border border-white/5 font-mono text-xs overflow-hidden"
+                                    className="text-sm text-slate-500 line-clamp-3 mb-6 bg-black/20 p-3 rounded-xl border border-white/5 font-mono text-xs max-h-[100px] overflow-hidden"
                                     dangerouslySetInnerHTML={{ __html: template.body }}
                                 />
 
