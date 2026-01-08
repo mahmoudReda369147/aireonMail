@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Email, Task } from '../types';
-import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, Loader2, ChevronLeft, ListTodo } from 'lucide-react';
+import { ArrowLeft, Sparkles, Trash2, MoreVertical, Paperclip, Send, Image as ImageIcon, Edit3, CheckSquare, Calendar, Clock, Users, Plus, X, Bot, ChevronRight, Wand2, CheckCircle2, Scissors, Feather, Briefcase, Smile, Zap, Loader2, ChevronLeft, ListTodo, Archive, ArchiveRestore } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './common/Button';
 import { RichEditor } from './common/RichEditor'; // Import the new editor
@@ -9,7 +9,7 @@ import { TaskModal } from './TaskModal';
 import { generateReply, editImage, analyzeActionItems, improveDraft, getSmartInboxAnalysis } from '../services/geminiService';
 import { useToast } from './common/Toast';
 import { useAppContext } from '../contexts/AppContext';
-import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply, useDeleteGmailEmail } from '../apis/hooks';
+import { useCreateCalendarTask, useSaveGmailSummary, useGmailEmailById, useCreateTask, useTasks, useUpdateTask, useDeleteTask, useSendEmailReply, useDeleteGmailEmail, useArchiveGmailEmail, useUnarchiveGmailEmail } from '../apis/hooks';
 import { CalendarTaskData, GmailEmail, TaskData } from '../apis/services';
 import { formatWhatsAppDate } from '../utils/dateFormat';
 import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
@@ -29,6 +29,8 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
   const deleteTaskMutation = useDeleteTask();
   const sendEmailReplyMutation = useSendEmailReply();
   const deleteGmailEmailMutation = useDeleteGmailEmail();
+  const archiveGmailEmailMutation = useArchiveGmailEmail();
+  const unarchiveGmailEmailMutation = useUnarchiveGmailEmail();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,6 +187,28 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
         },
         variant: "danger"
     });
+  };
+
+  const handleArchive = async () => {
+    try {
+        await archiveGmailEmailMutation.mutateAsync(email.id);
+        showToast("Email archived successfully", "success");
+        navigate(-1);
+    } catch (error) {
+        console.error("Failed to archive email", error);
+        showToast("Failed to archive email", "error");
+    }
+  };
+
+  const handleUnarchive = async () => {
+    try {
+        await unarchiveGmailEmailMutation.mutateAsync(email.id);
+        showToast("Email unarchived successfully", "success");
+        navigate(-1);
+    } catch (error) {
+        console.error("Failed to unarchive email", error);
+        showToast("Failed to unarchive email", "error");
+    }
   };
 
   const handleGenerateReply = async () => {
@@ -505,6 +529,11 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                 >
                     {showAi ? 'Close Assistant' : 'AI Reply'}
                 </Button>}
+                {email.folder === 'drafts' ? (
+                  <Button variant="icon" icon={ArchiveRestore} onClick={handleUnarchive} />
+                ) : (
+                  email.folder !== 'sent' && <Button variant="icon" icon={Archive} onClick={handleArchive} />
+                )}
                 {email.folder !== 'sent' && <Button variant="icon" icon={Trash2} onClick={handleDelete} />}
 
                 {/* More Actions Dropdown */}

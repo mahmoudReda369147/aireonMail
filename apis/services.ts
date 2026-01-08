@@ -221,6 +221,30 @@ export const deleteGmailEmail = async (id: string): Promise<DeleteGmailEmailResp
   return response.data;
 };
 
+// Archive Email interfaces
+export interface ArchiveGmailEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+// Archive Email service function
+export const archiveGmailEmail = async (id: string): Promise<ArchiveGmailEmailResponse> => {
+  const response = await put<ArchiveGmailEmailResponse>(`/gmail/emails/${id}/archive`);
+  return response.data;
+};
+
+// Unarchive Email interfaces
+export interface UnarchiveGmailEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+// Unarchive Email service function
+export const unarchiveGmailEmail = async (id: string): Promise<UnarchiveGmailEmailResponse> => {
+  const response = await put<UnarchiveGmailEmailResponse>(`/gmail/unarchived/${id}`);
+  return response.data;
+};
+
 // Convert Gmail email to app Email format
 export const mapGmailEmailToEmail = (gmailEmail: GmailEmail): import('../types').Email => {
   // Extract sender name from "Name <email>" format or use the full string
@@ -933,5 +957,82 @@ export const deleteNotification = async (id: string): Promise<{ success: boolean
 // Delete all emails (cleanup)
 export const deleteAllEmails = async (): Promise<{ success: boolean; message: string }> => {
   const response = await del<{ success: boolean; message: string }>('/gmail/emails/all');
+  return response.data;
+};
+
+// Bot Logs interfaces
+export interface BotLogUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface BotLogBot {
+  id: string;
+  botName: string;
+  description: string | null;
+}
+
+export interface BotLogTask {
+  id: string;
+  task: string;
+  priority: string;
+  isDoneTask: boolean;
+}
+
+export interface BotLogCalendarTask {
+  id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: string;
+  priority: string;
+}
+
+export interface BotLogData {
+  id: string;
+  userId: string;
+  botId: string;
+  gmailId: string;
+  replyedGmailId: string | null;
+  taskId: string | null;
+  clenderId: string | null;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  user: BotLogUser;
+  bot: BotLogBot;
+  task: BotLogTask | null;
+  calendarTask: BotLogCalendarTask | null;
+}
+
+export interface BotLogsPagination {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface BotLogsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    logs: BotLogData[];
+    pagination: BotLogsPagination;
+  };
+  meta: null;
+}
+
+// Fetch bot logs service function
+export const fetchBotLogs = async (botId: string, page: number = 1, limit: number = 20): Promise<BotLogsResponse> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+
+  const url = `/logs/bot/${botId}?${params.toString()}`;
+  const response = await get<BotLogsResponse>(url);
   return response.data;
 };

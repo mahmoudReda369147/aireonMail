@@ -8,8 +8,8 @@ import { Dropdown } from '../components/common/Dropdown';
 import { RichEditor } from '../components/common/RichEditor';
 import { Bot, Zap, Clock, MessageSquare, CheckCircle, PauseCircle, PlayCircle, Sliders, ChevronRight, Activity, Wand2, RefreshCcw, Loader2, Plus, X } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
-import { useBots, useUpdateBot, useUserTemplates } from '../apis/hooks';
-import { BotData } from '../apis/services';
+import { useBots, useUpdateBot, useUserTemplates, useBotLogs } from '../apis/hooks';
+import { BotData, BotLogData } from '../apis/services';
 import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const ConversationAutomationPage: React.FC = () => {
@@ -105,6 +105,23 @@ export const ConversationAutomationPage: React.FC = () => {
 
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const logsScrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Bot logs data
+  const {
+    data: logsData,
+    fetchNextPage: fetchNextLogsPage,
+    hasNextPage: hasNextLogsPage,
+    isFetchingNextPage: isFetchingNextLogsPage,
+    isLoading: isLoadingLogs,
+    refetch: refetchLogs,
+  } = useBotLogs(selectedBot?.id);
+
+  // Flatten all logs pages into a single array with memoization
+  const allLogs = useMemo(() =>
+    logsData?.pages.flatMap((page) => page.data.logs) || [],
+    [logsData?.pages]
+  );
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'bots' | 'conversations'>('bots');
@@ -147,6 +164,27 @@ export const ConversationAutomationPage: React.FC = () => {
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
   }, [hasNextPage, isFetchingNextPage]);
+
+  // Handle scroll for logs infinite loading
+  const handleLogsScroll = () => {
+    if (!logsScrollContainerRef.current || !hasNextLogsPage || isFetchingNextLogsPage) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = logsScrollContainerRef.current;
+
+    // Load more when scrolled to 80% of the container
+    if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+      fetchNextLogsPage();
+    }
+  };
+
+  // Attach scroll listener for logs
+  useEffect(() => {
+    const logsContainer = logsScrollContainerRef.current;
+    if (!logsContainer) return;
+
+    logsContainer.addEventListener('scroll', handleLogsScroll);
+    return () => logsContainer.removeEventListener('scroll', handleLogsScroll);
+  }, [hasNextLogsPage, isFetchingNextLogsPage]);
 
   // Select bot and update config
   const handleSelectBot = (bot: BotData) => {
@@ -722,20 +760,108 @@ export const ConversationAutomationPage: React.FC = () => {
                         </div>
 
                         {/* Activity Log */}
-                        <div className="bg-glass border border-glass-border rounded-3xl p-6 flex-1 min-h-[300px]">
+                        <div className="bg-glass border border-glass-border rounded-3xl p-6 flex-1 min-h-[300px] flex flex-col">
                            <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center gap-2">
                                  <Activity className="w-5 h-5 text-slate-400" />
                                  <h3 className="font-bold text-white">Activity Log</h3>
                               </div>
-                              <button className="text-slate-500 hover:text-white"><RefreshCcw className="w-4 h-4" /></button>
+                              <button
+                                 onClick={() => refetchLogs()}
+                                 className="text-slate-500 hover:text-white transition-colors"
+                                 disabled={isLoadingLogs}
+                              >
+                                 <RefreshCcw className={`w-4 h-4 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                              </button>
                            </div>
 
-                           <div className="space-y-4">
-                              <div className="text-center text-slate-500 py-10">
-                                 <Clock className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                 <p>No activity recorded yet</p>
-                              </div>
+                           <div
+                              ref={logsScrollContainerRef}
+                              className="space-y-4 flex-1 overflow-y-auto pr-2"
+                              style={{ maxHeight: '500px' }}
+                           >
+                              {isLoadingLogs && allLogs.length === 0 ? (
+                                 <div className="text-center text-slate-500 py-10">
+                                    <Loader2 className="w-10 h-10 mx-auto mb-3 opacity-20 animate-spin" />
+                                    <p>Loading activity logs...</p>
+                                 </div>
+                              ) : allLogs.length === 0 ? (
+                                 <div className="text-center text-slate-500 py-10">
+                                    <Clock className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                                    <p>No activity recorded yet</p>
+                                 </div>
+                              ) : (
+                                 <>
+                                    {allLogs.map((log: BotLogData) => {
+                                       const logDate = new Date(log.createdAt);
+                                       const now = new Date();
+                                       const diffInMs = now.getTime() - logDate.getTime();
+                                       const diffInMins = Math.floor(diffInMs / 60000);
+                                       const diffInHours = Math.floor(diffInMs / 3600000);
+                                       const diffInDays = Math.floor(diffInMs / 86400000);
+
+                                       let timeAgo = '';
+                                       if (diffInMins < 1) timeAgo = 'Just now';
+                                       else if (diffInMins < 60) timeAgo = `${diffInMins}m ago`;
+                                       else if (diffInHours < 24) timeAgo = `${diffInHours}h ago`;
+                                       else if (diffInDays < 7) timeAgo = `${diffInDays}d ago`;
+                                       else timeAgo = logDate.toLocaleDateString();
+
+                                       const getLogIcon = (title: string) => {
+                                          if (title.includes('Auto-Reply')) return 'bg-blue-500';
+                                          if (title.includes('Auto-Summarization')) return 'bg-purple-500';
+                                          if (title.includes('Task Auto-Extraction')) return 'bg-yellow-500';
+                                          if (title.includes('Meeting Auto-Extraction')) return 'bg-green-500';
+                                          return 'bg-cyan-500';
+                                       };
+
+                                       return (
+                                          <div key={log.id} className="flex gap-4 items-start relative group">
+                                             <div className="flex flex-col items-center">
+                                                <div className={`w-2 h-2 rounded-full mt-2 ${getLogIcon(log.title)}`}></div>
+                                                <div className="w-0.5 h-full bg-glass-border absolute top-4 group-last:hidden"></div>
+                                             </div>
+                                             <div className="flex-1 pb-4">
+                                                <div className="flex justify-between items-start">
+                                                   <span className="text-sm font-bold text-slate-200">{log.title}</span>
+                                                   <span className="text-[10px] text-slate-500 font-mono">{timeAgo}</span>
+                                                </div>
+                                                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{log.description}</p>
+                                                {log.task && (
+                                                   <div className="mt-2 flex items-center gap-2">
+                                                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                         log.task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                                         log.task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                         'bg-green-500/20 text-green-400'
+                                                      }`}>
+                                                         {log.task.priority}
+                                                      </span>
+                                                      <span className="text-[10px] text-slate-500">{log.task.task}</span>
+                                                   </div>
+                                                )}
+                                                {log.calendarTask && (
+                                                   <div className="mt-2 flex items-center gap-2">
+                                                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                         log.calendarTask.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                                         log.calendarTask.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                         'bg-green-500/20 text-green-400'
+                                                      }`}>
+                                                         {log.calendarTask.priority}
+                                                      </span>
+                                                      <span className="text-[10px] text-slate-500">{log.calendarTask.title}</span>
+                                                   </div>
+                                                )}
+                                             </div>
+                                          </div>
+                                       );
+                                    })}
+                                    {isFetchingNextLogsPage && (
+                                       <div className="text-center py-4">
+                                          <Loader2 className="w-6 h-6 mx-auto text-slate-500 animate-spin" />
+                                       </div>
+                                    )}
+                                 </>
+                              )}
                            </div>
                         </div>
 
@@ -938,37 +1064,107 @@ export const ConversationAutomationPage: React.FC = () => {
                             </div>
 
                             {/* Activity Log */}
-                            <div className="bg-glass border border-glass-border rounded-3xl p-6 flex-1 min-h-[300px]">
+                            <div className="bg-glass border border-glass-border rounded-3xl p-6 flex-1 min-h-[300px] flex flex-col">
                                 <div className="flex items-center justify-between mb-6">
                                     <div className="flex items-center gap-2">
                                         <Activity className="w-5 h-5 text-slate-400" />
                                         <h3 className="font-bold text-white">Activity Log</h3>
                                     </div>
-                                    <button className="text-slate-500 hover:text-white"><RefreshCcw className="w-4 h-4" /></button>
+                                    <button
+                                        onClick={() => refetchLogs()}
+                                        className="text-slate-500 hover:text-white transition-colors"
+                                        disabled={isLoadingLogs}
+                                    >
+                                        <RefreshCcw className={`w-4 h-4 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                                    </button>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {config.logs.length === 0 ? (
+                                <div
+                                    ref={logsScrollContainerRef}
+                                    className="space-y-4 flex-1 overflow-y-auto pr-2"
+                                    style={{ maxHeight: '500px' }}
+                                >
+                                    {isLoadingLogs && allLogs.length === 0 ? (
+                                        <div className="text-center text-slate-500 py-10">
+                                            <Loader2 className="w-10 h-10 mx-auto mb-3 opacity-20 animate-spin" />
+                                            <p>Loading activity logs...</p>
+                                        </div>
+                                    ) : allLogs.length === 0 ? (
                                         <div className="text-center text-slate-500 py-10">
                                             <Clock className="w-10 h-10 mx-auto mb-3 opacity-20" />
                                             <p>No activity recorded yet</p>
                                         </div>
                                     ) : (
-                                        config.logs.map(log => (
-                                            <div key={log.id} className="flex gap-4 items-start relative group">
-                                                <div className="flex flex-col items-center">
-                                                    <div className={`w-2 h-2 rounded-full mt-2 ${log.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                                    <div className="w-0.5 h-full bg-glass-border absolute top-4 group-last:hidden"></div>
-                                                </div>
-                                                <div className="flex-1 pb-4">
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="text-sm font-bold text-slate-200">{log.action}</span>
-                                                        <span className="text-[10px] text-slate-500 font-mono">{log.timestamp}</span>
+                                        <>
+                                            {allLogs.map((log: BotLogData) => {
+                                                const logDate = new Date(log.createdAt);
+                                                const now = new Date();
+                                                const diffInMs = now.getTime() - logDate.getTime();
+                                                const diffInMins = Math.floor(diffInMs / 60000);
+                                                const diffInHours = Math.floor(diffInMs / 3600000);
+                                                const diffInDays = Math.floor(diffInMs / 86400000);
+
+                                                let timeAgo = '';
+                                                if (diffInMins < 1) timeAgo = 'Just now';
+                                                else if (diffInMins < 60) timeAgo = `${diffInMins}m ago`;
+                                                else if (diffInHours < 24) timeAgo = `${diffInHours}h ago`;
+                                                else if (diffInDays < 7) timeAgo = `${diffInDays}d ago`;
+                                                else timeAgo = logDate.toLocaleDateString();
+
+                                                const getLogIcon = (title: string) => {
+                                                    if (title.includes('Auto-Reply')) return 'bg-blue-500';
+                                                    if (title.includes('Auto-Summarization')) return 'bg-purple-500';
+                                                    if (title.includes('Task Auto-Extraction')) return 'bg-yellow-500';
+                                                    if (title.includes('Meeting Auto-Extraction')) return 'bg-green-500';
+                                                    return 'bg-cyan-500';
+                                                };
+
+                                                return (
+                                                    <div key={log.id} className="flex gap-4 items-start relative group">
+                                                        <div className="flex flex-col items-center">
+                                                            <div className={`w-2 h-2 rounded-full mt-2 ${getLogIcon(log.title)}`}></div>
+                                                            <div className="w-0.5 h-full bg-glass-border absolute top-4 group-last:hidden"></div>
+                                                        </div>
+                                                        <div className="flex-1 pb-4">
+                                                            <div className="flex justify-between items-start">
+                                                                <span className="text-sm font-bold text-slate-200">{log.title}</span>
+                                                                <span className="text-[10px] text-slate-500 font-mono">{timeAgo}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400 mt-1 line-clamp-2">{log.description}</p>
+                                                            {log.task && (
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                                        log.task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                                                        log.task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                        'bg-green-500/20 text-green-400'
+                                                                    }`}>
+                                                                        {log.task.priority}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-500">{log.task.task}</span>
+                                                                </div>
+                                                            )}
+                                                            {log.calendarTask && (
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                                        log.calendarTask.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                                                        log.calendarTask.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                        'bg-green-500/20 text-green-400'
+                                                                    }`}>
+                                                                        {log.calendarTask.priority}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-500">{log.calendarTask.title}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <p className="text-xs text-slate-400 mt-1">{log.details}</p>
+                                                );
+                                            })}
+                                            {isFetchingNextLogsPage && (
+                                                <div className="text-center py-4">
+                                                    <Loader2 className="w-6 h-6 mx-auto text-slate-500 animate-spin" />
                                                 </div>
-                                            </div>
-                                        ))
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>

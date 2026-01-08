@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail, fetchArchivedEmails, ArchivedEmailsResponse, fetchGmailThreads, GmailThreadsResponse, fetchGmailThreadById, SingleThreadResponse, fetchEmailCounts, EmailCountsResponse, fetchNotifications, NotificationsResponse, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllEmails } from './services';
+import { createTemplate, CreateTemplateRequest, UpdateTemplateRequest, updateTemplate, DeleteTemplateResponse, deleteTemplate, fetchGmailEmails, fetchGmailSentEmails, fetchUserTemplates, GmailEmailsResponse, GmailSentEmailsResponse, UserTemplatesResponse, createCalendarTask, CalendarTaskRequest, CalendarTaskResponse, saveGmailSummary, GmailSummaryRequest, GmailSummaryResponse, fetchGmailEmailById, SingleGmailEmailResponse, createTask, TaskRequest, TaskResponse, fetchTasks, TasksResponse, updateTask, UpdateTaskRequest as UpdateTaskRequestType, deleteTask as deleteTaskService, fetchAllTasks, FetchAllTasksParams, fetchCalendarTasks, FetchCalendarTasksParams, CalendarTasksResponse, updateCalendarTask, UpdateCalendarTaskRequest, deleteCalendarTask, sendEmailReply, SendEmailReplyRequest, fetchBots, BotsResponse, updateBot, UpdateBotRequest, createBot, CreateBotRequest, deleteGmailEmail, archiveGmailEmail, unarchiveGmailEmail, fetchArchivedEmails, ArchivedEmailsResponse, fetchGmailThreads, GmailThreadsResponse, fetchGmailThreadById, SingleThreadResponse, fetchEmailCounts, EmailCountsResponse, fetchNotifications, NotificationsResponse, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, deleteAllEmails, fetchBotLogs, BotLogsResponse } from './services';
 import { post } from './apiCall';
 
 // React Query key for Gmail emails
@@ -26,6 +26,12 @@ export const DELETE_TEMPLATE_MUTATION_KEY = 'delete-template';
 
 // React Query key for delete email
 export const DELETE_EMAIL_MUTATION_KEY = 'delete-email';
+
+// React Query key for archive email
+export const ARCHIVE_EMAIL_MUTATION_KEY = 'archive-email';
+
+// React Query key for unarchive email
+export const UNARCHIVE_EMAIL_MUTATION_KEY = 'unarchive-email';
 
 // React Query key for Gmail send
 export const GMAIL_SEND_MUTATION_KEY = 'gmail-send';
@@ -145,6 +151,37 @@ export const useDeleteGmailEmail = () => {
     onSuccess: () => {
       // Invalidate and refetch Gmail emails after deleting
       queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for archiving Gmail email
+export const useArchiveGmailEmail = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [ARCHIVE_EMAIL_MUTATION_KEY],
+    mutationFn: (id: string) => archiveGmailEmail(id),
+    onSuccess: () => {
+      // Invalidate and refetch Gmail emails after archiving
+      queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
+    },
+  });
+};
+
+// Hook for unarchiving Gmail email
+export const useUnarchiveGmailEmail = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [UNARCHIVE_EMAIL_MUTATION_KEY],
+    mutationFn: (id: string) => unarchiveGmailEmail(id),
+    onSuccess: () => {
+      // Invalidate and refetch Gmail emails and archived emails after unarchiving
+      queryClient.invalidateQueries({ queryKey: [GMAIL_EMAILS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [ARCHIVED_EMAILS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
   });
@@ -535,5 +572,25 @@ export const useDeleteAllEmails = () => {
       queryClient.invalidateQueries({ queryKey: [GMAIL_THREADS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [EMAIL_COUNTS_QUERY_KEY] });
     },
+  });
+};
+
+// React Query key for bot logs
+export const BOT_LOGS_QUERY_KEY = 'bot-logs';
+
+// Hook for fetching bot logs with infinite scroll pagination
+export const useBotLogs = (botId: string | undefined) => {
+  return useInfiniteQuery<BotLogsResponse>({
+    queryKey: [BOT_LOGS_QUERY_KEY, botId],
+    queryFn: ({ pageParam = 1 }) => fetchBotLogs(botId!, pageParam as number, 20),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      return lastPage.data.pagination.hasNextPage
+        ? lastPage.data.pagination.currentPage + 1
+        : undefined;
+    },
+    enabled: !!botId,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };
