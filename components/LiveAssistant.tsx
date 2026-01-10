@@ -1679,6 +1679,156 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
    - View upcoming events
    - Meeting agendas and durations
 
+9. **CREATIVE STUDIO PAGE (Document Generation with AI):**
+   The Creative Studio (also called Veo Studio or Document Studio) allows users to generate professional documents using AI.
+
+   **Creative Studio Page Structure:**
+
+   **HEADER:**
+   - Page Title: "Document Studio"
+   - Description: "Create professional documents with AI-powered generation"
+
+   **3 DOCUMENT TYPE TABS:**
+   Located at the top center, users can switch between 3 types of documents:
+
+   **Tab 1 - Document:**
+   - Icon: FileText
+   - Purpose: Generate general business documents
+   - Examples: Business proposals, reports, letters, contracts, project documentation
+   - Use case: "Create a professional business proposal for a web development project"
+
+   **Tab 2 - Resume/CV:**
+   - Icon: FileSignature
+   - Purpose: Generate professional resumes and CVs
+   - Examples: Software developer resume, manager CV, entry-level resume
+   - Use case: "Create a resume for a Senior Full Stack Developer with 5 years of experience"
+
+   **Tab 3 - Cover Letter:**
+   - Icon: Mail
+   - Purpose: Generate job application cover letters
+   - Examples: Software engineer cover letter, marketing manager cover letter
+   - Use case: "Create a cover letter for a Software Engineer position at Google"
+
+   **TWO-COLUMN LAYOUT:**
+
+   **LEFT COLUMN - Prompt Input Section:**
+
+   **Components:**
+
+   1. **Prompt Input Card:**
+      - Title: Shows current tab label + "Prompt" (e.g., "Document Prompt", "Resume Prompt")
+      - Description: "Describe what you want to create"
+
+   2. **Description Textarea:**
+      - Large text area (264px height)
+      - User enters detailed description of what they want to generate
+      - Dynamic placeholder that changes based on selected tab:
+        - **Document**: "Example: Create a professional business proposal for a web development project worth $50,000. Include executive summary, project scope, timeline, and pricing..."
+        - **Resume**: "Example: Create a resume for a Senior Full Stack Developer with 5 years of experience in React, Node.js, TypeScript, AWS, and Docker. Include 3 previous positions at tech companies..."
+        - **Cover Letter**: "Example: Create a cover letter for a Software Engineer position at Google. Highlight my 4 years of experience in distributed systems and my passion for building scalable applications..."
+
+   3. **Generate Button:**
+      - Primary action button (purple-pink gradient)
+      - Text: "Generate [Document/Resume/Cover Letter]"
+      - Shows loading spinner and "Generating..." when processing
+      - Disabled when prompt is empty or generating
+      - **What it does:**
+        a) Takes the user's prompt
+        b) Uses AI (Google Gemini) to generate professional HTML document
+        c) Automatically converts HTML to PDF
+        d) Uploads PDF to cloud storage
+        e) Displays PDF in preview area on the right
+
+   4. **Download PDF Button:**
+      - Secondary action button
+      - Text: "Download PDF"
+      - Disabled until document is generated
+      - Downloads the generated PDF file to user's computer
+      - Filename format: document-type-timestamp.pdf (e.g., resume-1704729600000.pdf)
+
+   **RIGHT COLUMN - PDF Preview Section:**
+
+   **Components:**
+
+   1. **Preview Header:**
+      - Title: "PDF Preview"
+      - Icon: FileText (purple color)
+
+   2. **Preview Area (800px height):**
+
+      **Three States:**
+
+      **State A - Empty State (No document yet):**
+      - Shows empty state illustration
+      - Message: "No Document Yet"
+      - Instructions: "Enter a prompt and click 'Generate' to create your PDF document"
+      - Shows feature highlights:
+        - AI-Powered generation
+        - PDF Output format
+
+      **State B - Generating State:**
+      - Shows loading spinner animation
+      - Message: "Generating your [document/resume/cover letter]..." OR "Converting and uploading PDF..."
+      - Subtitle: "This may take a few moments"
+
+      **State C - PDF Preview (Document generated):**
+      - Shows uploaded PDF file embedded in the preview area
+      - **Top Bar:**
+        - Green upload icon + "Uploaded to cloud storage" text
+        - "Open in new tab" link (opens PDF in new browser tab)
+      - **PDF Embed:**
+        - Full PDF preview displayed inline
+        - Scrollable if content is long
+        - High-quality rendering (A4 format, 210mm width)
+
+   **COMPLETE WORKFLOW:**
+   1. User selects document type tab (Document, Resume, or Cover Letter)
+   2. User enters detailed description in the prompt textarea
+   3. User clicks "Generate [Document Type]" button
+   4. System shows "Generating..." loading state
+   5. AI generates professional HTML content based on prompt
+   6. System converts HTML to PDF automatically
+   7. System uploads PDF to cloud storage
+   8. PDF preview appears in right column with cloud storage URL
+   9. User can view the PDF in the preview area
+   10. User can click "Open in new tab" to view in full browser window
+   11. User can click "Download PDF" to save locally
+
+   **KEY FEATURES:**
+   - **3 document types**: General documents, resumes, cover letters
+   - **AI-powered generation**: Uses Google Gemini AI for professional content
+   - **Automatic PDF conversion**: HTML to PDF with proper A4 formatting
+   - **Cloud storage**: PDFs automatically uploaded to cloud
+   - **Real-time preview**: See generated PDF immediately in browser
+   - **Download capability**: Save PDFs to local computer
+   - **Professional formatting**: High-quality output with proper margins and styling
+   - **Context-aware placeholders**: Different examples for each document type
+   - **State management**: Clear visual feedback during generation process
+
+   **TECHNICAL DETAILS:**
+   - PDF format: A4 (210mm width)
+   - PDF quality: High (0.98 JPEG quality, 2x scale)
+   - Conversion library: html2pdf.js
+   - Cloud upload: Automatic after generation
+   - Preview: Embedded PDF viewer in browser
+
+   **USE CASES:**
+
+   **Business Documents:**
+   - "Create a professional business proposal for a web development project worth $50,000"
+   - "Generate a quarterly report for Q4 2025 with financial highlights"
+   - "Write a formal complaint letter about delayed delivery"
+
+   **Resumes:**
+   - "Create a resume for a Senior Full Stack Developer with 5 years experience in React, Node.js, AWS"
+   - "Generate a CV for a Marketing Manager with 8 years in digital marketing"
+   - "Make a resume for an entry-level Data Scientist fresh graduate"
+
+   **Cover Letters:**
+   - "Create a cover letter for a Software Engineer position at Google highlighting distributed systems experience"
+   - "Generate a cover letter for a Marketing Manager role emphasizing social media expertise"
+   - "Write a cover letter for a Senior Developer position showing leadership skills"
+
 10. **NOTIFICATIONS:**
    - System notifications
    - Email alerts
@@ -1696,7 +1846,6 @@ export const LiveAssistant: React.FC<LiveAssistantProps> = ({ onClose, emails })
 12. **ADDITIONAL FEATURES:**
    - Archive emails
    - Delete emails
-   - Veo Studio (AI video generation)
    - Live Chat assistant (me!)
    - Multi-account support
 

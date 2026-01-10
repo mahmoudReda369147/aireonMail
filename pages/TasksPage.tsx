@@ -10,7 +10,7 @@ import { Dropdown, DropdownOption } from '../components/common/Dropdown';
 import { TaskModal } from '../components/TaskModal';
 
 export const TasksPage: React.FC = () => {
-  const { showToast, requestConfirm } = useAppContext();
+  const { showToast, requestConfirm, t } = useAppContext();
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
@@ -49,16 +49,16 @@ export const TasksPage: React.FC = () => {
 
   // Dropdown options
   const priorityOptions: DropdownOption[] = [
-    { label: 'All Priorities', value: '' },
-    { label: '🟢 Low', value: 'low' },
-    { label: '🟡 Medium', value: 'medium' },
-    { label: '🔴 High', value: 'high' },
+    { label: t ? t('tasks.all_priorities') : 'All Priorities', value: '' },
+    { label: '🟢 ' + (t ? t('tasks.priority_low') : 'Low'), value: 'low' },
+    { label: '🟡 ' + (t ? t('tasks.priority_medium') : 'Medium'), value: 'medium' },
+    { label: '🔴 ' + (t ? t('tasks.priority_high') : 'High'), value: 'high' },
   ];
 
   const statusOptions: DropdownOption[] = [
-    { label: 'All Tasks', value: '' },
-    { label: 'Pending Tasks', value: 'pending' },
-    { label: 'Done Tasks', value: 'done' },
+    { label: t ? t('tasks.all_tasks') : 'All Tasks', value: '' },
+    { label: t ? t('tasks.pending_tasks') : 'Pending Tasks', value: 'pending' },
+    { label: t ? t('tasks.done_tasks') : 'Done Tasks', value: 'done' },
   ];
 
   // Reset to page 1 when filters change
@@ -91,10 +91,10 @@ export const TasksPage: React.FC = () => {
         priority: taskData.priority,
         gmailId: taskData.gmailId || '',
       });
-      showToast('Task created successfully', 'success');
+      showToast(t('tasks.task_created_success'), 'success');
     } catch (error) {
       console.error('Failed to create task', error);
-      showToast('Failed to create task', 'error');
+      showToast(t('tasks.failed_create_task'), 'error');
     }
   };
 
@@ -122,25 +122,25 @@ export const TasksPage: React.FC = () => {
         },
       });
       setEditingTask(null);
-      showToast('Task updated successfully', 'success');
+      showToast(t('tasks.task_updated_success'), 'success');
     } catch (error) {
       console.error('Failed to update task', error);
-      showToast('Failed to update task', 'error');
+      showToast(t('tasks.failed_update_task'), 'error');
     }
   };
 
   // Handle delete task
   const handleDeleteTask = (taskId: string) => {
     requestConfirm({
-      title: 'Delete Task',
-      message: 'Are you sure you want to delete this task?',
+      title: t('tasks.delete_title'),
+      message: t('tasks.delete_message'),
       onConfirm: async () => {
         try {
           await deleteTaskMutation.mutateAsync(taskId);
-          showToast('Task deleted successfully', 'success');
+          showToast(t('tasks.task_deleted_success'), 'success');
         } catch (error) {
           console.error('Failed to delete task', error);
-          showToast('Failed to delete task', 'error');
+          showToast(t('tasks.failed_delete_task'), 'error');
         }
       },
       variant: 'danger',
@@ -158,7 +158,7 @@ export const TasksPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to update task', error);
-      showToast('Failed to update task', 'error');
+      showToast(t('tasks.failed_update_task'), 'error');
     }
   };
 
@@ -173,10 +173,10 @@ export const TasksPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-200 via-fuchsia-200 to-purple-300 bg-clip-text text-transparent">
-                My Tasks
+                {t('tasks.title')}
               </h1>
               <p className="text-sm text-slate-400">
-                {totalTasks} total • {pendingTasks} pending • {doneTasks} done
+                {t('tasks.total_pending_done').replace('{total}', totalTasks.toString()).replace('{pending}', pendingTasks.toString()).replace('{done}', doneTasks.toString())}
               </p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export const TasksPage: React.FC = () => {
             onClick={() => setShowAddModal(true)}
             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-500/30"
           >
-            <Plus className="w-4 h-4" /> Add Task
+            <Plus className="w-4 h-4" /> {t('tasks.add_task')}
           </Button>
         </div>
 
@@ -195,7 +195,7 @@ export const TasksPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Search tasks..."
+              placeholder={t('tasks.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-black/40 border border-purple-500/20 rounded-xl text-white placeholder-slate-500 outline-none focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
@@ -206,7 +206,7 @@ export const TasksPage: React.FC = () => {
           <div className="relative">
             <input
               type="date"
-              placeholder="From date"
+              placeholder={t('tasks.from_date')}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="w-full px-4 py-2 bg-black/40 border border-purple-500/20 rounded-xl text-white outline-none focus:border-fuchsia-400/50 focus:ring-2 focus:ring-fuchsia-500/10 transition-all"
@@ -217,7 +217,7 @@ export const TasksPage: React.FC = () => {
           <div className="relative">
             <input
               type="date"
-              placeholder="To date"
+              placeholder={t('tasks.to_date')}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="w-full px-4 py-2 bg-black/40 border border-purple-500/20 rounded-xl text-white outline-none focus:border-fuchsia-400/50 focus:ring-2 focus:ring-fuchsia-500/10 transition-all"
@@ -229,7 +229,7 @@ export const TasksPage: React.FC = () => {
             value={priority}
             options={priorityOptions}
             onChange={(value) => setPriority(value as any)}
-            placeholder="All Priorities"
+            placeholder={t('tasks.all_priorities')}
             icon={Filter}
           />
 
@@ -240,7 +240,7 @@ export const TasksPage: React.FC = () => {
             onChange={(value) =>
               setIsDoneTask(value === '' ? undefined : value === 'done')
             }
-            placeholder="All Tasks"
+            placeholder={t('tasks.all_tasks')}
             icon={CheckSquare}
           />
         </div>
@@ -251,7 +251,7 @@ export const TasksPage: React.FC = () => {
             onClick={handleResetFilters}
             className="mt-3 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-slate-400 hover:text-white transition-all flex items-center gap-2"
           >
-            <X className="w-4 h-4" /> Clear Filters
+            <X className="w-4 h-4" /> {t('tasks.clear_filters')}
           </button>
         )}
       </div>
@@ -265,8 +265,8 @@ export const TasksPage: React.FC = () => {
         ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500">
             <CheckSquare className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-lg">No tasks found</p>
-            <p className="text-sm">Try adjusting your filters or create a new task</p>
+            <p className="text-lg">{t('tasks.no_tasks_found')}</p>
+            <p className="text-sm">{t('tasks.try_adjusting_filters')}</p>
           </div>
         ) : (
           <div className="space-y-3 max-w-5xl mx-auto">
@@ -318,7 +318,7 @@ export const TasksPage: React.FC = () => {
                     </span>
                     
                     <span className="text-[10px] text-slate-500">
-                      Created: {new Date(task.createdAt).toLocaleDateString()}
+                      {t('tasks.created')} {new Date(task.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <div>
@@ -368,14 +368,14 @@ export const TasksPage: React.FC = () => {
                   <button
                     onClick={() => handleEditTask(task)}
                     className="p-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 transition-colors"
-                    title="Edit task"
+                    title={t('tasks.edit_task')}
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDeleteTask(task.id)}
                     className="p-1.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 transition-colors"
-                    title="Delete task"
+                    title={t('tasks.delete_task')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -393,7 +393,7 @@ export const TasksPage: React.FC = () => {
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1 || isLoading}
               className="p-2 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Previous page"
+              title={t('tasks.previous_page')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -442,7 +442,7 @@ export const TasksPage: React.FC = () => {
               onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages || isLoading}
               className="p-2 rounded-lg bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 text-purple-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Next page"
+              title={t('tasks.next_page')}
             >
               <ChevronRight className="w-4 h-4" />
             </button>

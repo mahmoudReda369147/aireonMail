@@ -21,7 +21,7 @@ interface Props {
 export const EmailDetail: React.FC<Props> = ({ email }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { deleteEmail, requestConfirm, updateEmail } = useAppContext();
+  const { deleteEmail, requestConfirm, updateEmail, t } = useAppContext();
   const createCalendarTaskMutation = useCreateCalendarTask();
   const saveGmailSummaryMutation = useSaveGmailSummary();
   const createTaskMutation = useCreateTask();
@@ -173,8 +173,8 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
 
   const handleDelete = () => {
     requestConfirm({
-        title: "Delete Email",
-        message: "Are you sure you want to move this conversation to Trash?",
+        title: t('email_detail.delete_email'),
+        message: t('email_detail.delete_confirm'),
         onConfirm: async () => {
             try {
                 await deleteGmailEmailMutation.mutateAsync(email.id);
@@ -495,30 +495,12 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
         <div className="p-5 border-b border-glass-border flex justify-between items-center bg-glass backdrop-blur-md sticky top-0 z-10 shrink-0">
-          <button onClick={() => navigate(-1)} className="md:hidden flex items-center gap-2 text-slate-400 hover:text-white">
-            <ArrowLeft className="w-5 h-5" /> Back
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-slate-400 text-lg">Loading email...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full flex flex-col relative overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-5 border-b border-glass-border flex justify-between items-center bg-glass backdrop-blur-md sticky top-0 z-10 shrink-0">
             <button onClick={() => navigate(-1)} className="md:hidden flex items-center gap-2 text-slate-400 hover:text-white">
-                <ArrowLeft className="w-5 h-5" /> Back
+                <ArrowLeft className="w-5 h-5" /> {t('email_detail.back')}
             </button>
-            <div className="flex gap-3 ml-auto">
-                <Button variant="secondary" onClick={handleAnalyzeActions} isLoading={isAnalyzing} icon={Sparkles}>
-                    Smart Actions
+            <div className={`flex gap-3 ${t('app.dir') === 'rtl' ? 'ml-0 mr-auto' : 'ml-auto'}`}>
+                <Button variant="secondary" onClick={handleAnalyzeActions} isLoading={isAnalyzing} icon={Sparkles} disabled>
+                    {t('email_detail.smart_actions')}
                 </Button>
                 {email.folder !== 'sent' && <Button
                     variant="secondary"
@@ -526,15 +508,16 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                     isLoading={isGenerating}
                     icon={Sparkles}
                     className={`transition-all ${showAi ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.4)]' : 'bg-fuchsia-500/10 border-fuchsia-500/50 text-fuchsia-100 hover:bg-fuchsia-500/20'}`}
+                    disabled
                 >
-                    {showAi ? 'Close Assistant' : 'AI Reply'}
+                    {showAi ? t('email_detail.close_assistant') : t('email_detail.ai_reply')}
                 </Button>}
                 {email.folder === 'drafts' ? (
-                  <Button variant="icon" icon={ArchiveRestore} onClick={handleUnarchive} />
+                  <Button variant="icon" icon={ArchiveRestore} onClick={handleUnarchive} disabled />
                 ) : (
-                  email.folder !== 'sent' && <Button variant="icon" icon={Archive} onClick={handleArchive} />
+                  email.folder !== 'sent' && <Button variant="icon" icon={Archive} onClick={handleArchive} disabled />
                 )}
-                {email.folder !== 'sent' && <Button variant="icon" icon={Trash2} onClick={handleDelete} />}
+                {email.folder !== 'sent' && <Button variant="icon" icon={Trash2} onClick={handleDelete} disabled />}
 
                 {/* More Actions Dropdown */}
                 <div className="relative" ref={moreActionsRef}>
@@ -542,10 +525,11 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         variant="icon"
                         icon={MoreVertical}
                         onClick={() => setShowMoreActions(!showMoreActions)}
+                        disabled
                     />
 
                     {showMoreActions && (
-                        <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-glass-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className={`absolute ${t('app.dir') === 'rtl' ? 'left-0' : 'right-0'} mt-2 w-56 bg-slate-900 border border-glass-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
                             <button
                                 onClick={() => {
                                     setShowTaskModal(true);
@@ -554,7 +538,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-purple-500/10 transition-colors border-b border-glass-border"
                             >
                                 <ListTodo className="w-4 h-4 text-purple-400" />
-                                <span className="text-sm font-medium">Add Task</span>
+                                <span className="text-sm font-medium">{t('email_detail.add_task')}</span>
                             </button>
                             <button
                                 onClick={() => {
@@ -574,7 +558,89 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-blue-500/10 transition-colors"
                             >
                                 <Calendar className="w-4 h-4 text-blue-400" />
-                                <span className="text-sm font-medium">Add to Calendar</span>
+                                <span className="text-sm font-medium">{t('email_detail.add_to_calendar')}</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-slate-400 text-lg">{t('email_detail.loading_email')}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col relative overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-5 border-b border-glass-border flex justify-between items-center bg-glass backdrop-blur-md sticky top-0 z-10 shrink-0">
+            <button onClick={() => navigate(-1)} className="md:hidden flex items-center gap-2 text-slate-400 hover:text-white">
+                <ArrowLeft className="w-5 h-5" /> {t('email_detail.back')}
+            </button>
+            <div className={`flex gap-3 ${t('app.dir') === 'rtl' ? 'ml-0 mr-auto' : 'ml-auto'}`}>
+                <Button variant="secondary" onClick={handleAnalyzeActions} isLoading={isAnalyzing} icon={Sparkles}>
+                    {t('email_detail.smart_actions')}
+                </Button>
+                {email.folder !== 'sent' && <Button
+                    variant="secondary"
+                    onClick={() => setShowAi(!showAi)}
+                    isLoading={isGenerating}
+                    icon={Sparkles}
+                    className={`transition-all ${showAi ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.4)]' : 'bg-fuchsia-500/10 border-fuchsia-500/50 text-fuchsia-100 hover:bg-fuchsia-500/20'}`}
+                >
+                    {showAi ? t('email_detail.close_assistant') : t('email_detail.ai_reply')}
+                </Button>}
+                {email.folder === 'drafts' ? (
+                  <Button variant="icon" icon={ArchiveRestore} onClick={handleUnarchive} />
+                ) : (
+                  email.folder !== 'sent' && <Button variant="icon" icon={Archive} onClick={handleArchive} />
+                )}
+                {email.folder !== 'sent' && <Button variant="icon" icon={Trash2} onClick={handleDelete} />}
+
+                {/* More Actions Dropdown */}
+                <div className="relative" ref={moreActionsRef}>
+                    <Button
+                        variant="icon"
+                        icon={MoreVertical}
+                        onClick={() => setShowMoreActions(!showMoreActions)}
+                    />
+
+                    {showMoreActions && (
+                        <div className={`absolute ${t('app.dir') === 'rtl' ? 'left-0' : 'right-0'} mt-2 w-56 bg-slate-900 border border-glass-border rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                            <button
+                                onClick={() => {
+                                    setShowTaskModal(true);
+                                    setShowMoreActions(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-purple-500/10 transition-colors border-b border-glass-border"
+                            >
+                                <ListTodo className="w-4 h-4 text-purple-400" />
+                                <span className="text-sm font-medium">{t('email_detail.add_task')}</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowCalendarModal(true);
+                                    setShowMoreActions(false);
+                                    // Pre-fill with current date and time
+                                    const now = new Date();
+                                    const dateTimeString = `${now.toISOString().slice(0, 10)}T${now.toTimeString().slice(0, 5)}:00+02:00`;
+                                    setCalendarForm({
+                                        title: '',
+                                        description: '',
+                                        status: 'pending',
+                                        priority: 'medium',
+                                        dueDate: dateTimeString
+                                    });
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-blue-500/10 transition-colors"
+                            >
+                                <Calendar className="w-4 h-4 text-blue-400" />
+                                <span className="text-sm font-medium">{t('email_detail.add_to_calendar')}</span>
                             </button>
                         </div>
                     )}
@@ -596,7 +662,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="text-sm text-slate-400">{email.senderEmail}</div>
                     </div>
                 </div>
-                <div className="text-sm font-medium text-slate-500 bg-surface px-3 py-1 rounded-full border border-glass-border">{formatWhatsAppDate(fullEmailData.date)}</div>
+                <div className="text-sm font-medium text-slate-500 bg-surface px-3 py-1 rounded-full border border-glass-border">{formatWhatsAppDate(fullEmailData.date, t)}</div>
             </div>
 
             {/* AI Insights, Meetings & Tasks Section */}
@@ -611,12 +677,12 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                 {isAnalyzingSummary ? (
                                     <>
                                         <div className="w-4 h-4 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin" />
-                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">Analyzing with AI...</span>
+                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">{t('email_detail.analyzing_ai')}</span>
                                     </>
                                 ) : (
                                     <>
                                         <Sparkles className="w-4 h-4 text-fuchsia-400" />
-                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">AI Insight</span>
+                                        <span className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest">{t('email_detail.ai_insight')}</span>
                                     </>
                                 )}
                             </div>
@@ -626,12 +692,12 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                     aiPriority > 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
                                     'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                                 }`}>
-                                    Priority: {aiPriority}
+                                    {t('email_detail.priority')}: {aiPriority}
                                 </span>
                             )}
                         </div>
                         <p className="text-base text-slate-200 leading-relaxed font-light">
-                            {isAnalyzingSummary ? "Generating smart summary..." : aiSummary}
+                            {isAnalyzingSummary ? t('email_detail.generating_summary') : aiSummary}
                         </p>
                     </div>
                 )}
@@ -642,17 +708,17 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="flex items-center justify-between mb-4">
                              <div className="flex items-center gap-2">
                                 <Calendar className="w-5 h-5 text-blue-400" />
-                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Suggested Event</span>
+                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t('email_detail.suggested_event')}</span>
                              </div>
                              <Button onClick={addToCalendar} disabled={isAddingToCalendar} className="bg-blue-600 hover:bg-blue-500 text-xs py-1.5 px-4 shadow-lg shadow-blue-500/30 h-8">
                                 {isAddingToCalendar ? (
                                     <>
                                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        Adding...
+                                        {t('email_detail.adding')}
                                     </>
                                 ) : (
                                     <>
-                                        <Plus className="w-3 h-3" /> Add to Calendar
+                                        <Plus className="w-3 h-3" /> {t('email_detail.add_to_calendar')}
                                     </>
                                 )}
                              </Button>
@@ -666,7 +732,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                             </div>
                             {detectedMeeting.agenda && (
                                 <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
-                                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">Agenda</span>
+                                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">{t('email_detail.agenda')}</span>
                                     {detectedMeeting.agenda}
                                 </div>
                             )}
@@ -680,7 +746,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="flex items-center justify-between mb-4">
                              <div className="flex items-center gap-2">
                                 <CheckCircle2 className="w-5 h-5 text-green-400" />
-                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Added to Calendar</span>
+                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">{t('email_detail.added_to_calendar')}</span>
                              </div>
                              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
                                 savedCalendarTask.priority === 'high' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
@@ -698,7 +764,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                             </div>
                             {savedCalendarTask.description && (
                                 <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
-                                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">Description</span>
+                                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">{t('email_detail.description')}</span>
                                     {savedCalendarTask.description}
                                 </div>
                             )}
@@ -711,9 +777,9 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <CheckSquare className="w-4 h-4 text-emerald-400" />
-                                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Action Items</span>
+                                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">{t('email_detail.action_items')}</span>
                             </div>
-                            <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">{localTasks.filter(t => !t.completed).length} pending</span>
+                            <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">{localTasks.filter(t => !t.completed).length} {t('email_detail.pending')}</span>
                         </div>
                         <div className="space-y-3">
                             {localTasks.map(task => (
@@ -737,7 +803,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                                 task.priority === 'Medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
                                                 'text-slate-400 border-slate-600 bg-slate-700/30'
                                             }`}>
-                                                {task.priority}
+                                                {task.priority==="High"?t("email_detail.high_priority"):task.priority==="Medium"?t("email_detail.medium_priority"):t("email_detail.low_priority")}
                                             </span>
                                         </div>
                                     </div>
@@ -746,7 +812,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
                                     >
                                         <Plus className="w-3 h-3" />
-                                        Save
+                                      {  t("Save")}
                                     </button>
                                 </div>
                             ))}
@@ -760,10 +826,10 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <Briefcase className="w-4 h-4 text-purple-400" />
-                                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">My Tasks</span>
+                                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">{t("tasks.title")}</span>
                             </div>
                             <span className="text-xs text-slate-500 bg-black/20 px-2 py-1 rounded-lg">
-                                {pendingTaskes} pending
+                                {pendingTaskes} {t("calendar_events.pending")}
                             </span>
                         </div>
                         <div className="space-y-3">
@@ -788,7 +854,7 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                                                 task.priority === 'medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
                                                 'text-slate-400 border-slate-600 bg-slate-700/30'
                                             }`}>
-                                                {task.priority}
+                                                {task.priority==="high"?t("email_detail.high_priority"):task.priority==="medium"?t("email_detail.medium_priority"):t("email_detail.low_priority")}
                                             </span>
                                             
                                         </div>
@@ -940,14 +1006,14 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
         </div>
 
         {/* AI Sidebar */}
-        <div className={`w-[400px] bg-[#0F1020]/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-500 absolute right-0 top-0 bottom-0 z-40 ${showAi ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`w-[400px] bg-[#0F1020]/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-500 absolute ${t('app.dir') === 'rtl' ? 'left-0' : 'right-0'} top-0 bottom-0 z-40 ${showAi ? 'translate-x-0' : t('app.dir') === 'rtl' ? '-translate-x-full' : 'translate-x-full'}`}>
             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/20 shrink-0">
                 <div>
                     <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-fuchsia-500" />
-                    AI Reply Assistant
+                    {t('email_detail.ai_reply_assistant')}
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1">Context-aware replies powered by Gemini 3 Pro</p>
+                    <p className="text-xs text-slate-500 mt-1">{t('email_detail.context_aware_replies')}</p>
                 </div>
                 <button onClick={() => setShowAi(false)} className="text-slate-500 hover:text-white transition-colors">
                     <X className="w-5 h-5" />
@@ -1253,13 +1319,13 @@ export const EmailDetail: React.FC<Props> = ({ email }) => {
                             onClick={() => setEditingTask(null)}
                             className="hover:bg-white/10"
                         >
-                            <X className="w-4 h-4" /> Cancel
+                            <X className="w-4 h-4" /> {t('email_detail.cancel')}
                         </Button>
                         <Button
                             onClick={handleUpdateTask}
                             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-200"
                         >
-                            <CheckCircle2 className="w-4 h-4" /> Update Task
+                            <CheckCircle2 className="w-4 h-4" /> {t('email_detail.update_task')}
                         </Button>
                     </div>
                 </div>

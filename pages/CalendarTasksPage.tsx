@@ -8,7 +8,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { CountdownTimer } from '../components/CountdownTimer';
 
 export const CalendarTasksPage: React.FC = () => {
-  const { showToast, requestConfirm } = useAppContext();
+  const { showToast, requestConfirm, t } = useAppContext();
   const createCalendarTaskMutation = useCreateCalendarTask();
   const updateCalendarTaskMutation = useUpdateCalendarTask();
   const deleteCalendarTaskMutation = useDeleteCalendarTask();
@@ -54,16 +54,16 @@ export const CalendarTasksPage: React.FC = () => {
 
   // Dropdown options
   const priorityOptions: DropdownOption[] = [
-    { label: 'All Priorities', value: '' },
-    { label: '🟢 Low', value: 'low' },
-    { label: '🟡 Medium', value: 'medium' },
-    { label: '🔴 High', value: 'high' },
+    { label: t ? t('calendar_events.all_priorities') : 'All Priorities', value: '' },
+    { label: '🟢 ' + (t ? t('tasks.priority_low') : 'Low'), value: 'low' },
+    { label: '🟡 ' + (t ? t('tasks.priority_medium') : 'Medium'), value: 'medium' },
+    { label: '🔴 ' + (t ? t('tasks.priority_high') : 'High'), value: 'high' },
   ];
 
   const statusOptions: DropdownOption[] = [
-    { label: 'All Status', value: '' },
-    { label: 'Pending', value: 'pending' },
-    { label: 'Completed', value: 'completed' },
+    { label: t ? t('calendar_events.all_status') : 'All Status', value: '' },
+    { label: t ? t('calendar_events.pending') : 'Pending', value: 'pending' },
+    { label: t ? t('calendar_events.completed') : 'Completed', value: 'completed' },
   ];
 
   // Reset to page 1 when filters change
@@ -73,14 +73,14 @@ export const CalendarTasksPage: React.FC = () => {
 
   // Dropdown options for modal
   const modalPriorityOptions: DropdownOption[] = [
-    { label: '🟢 Low Priority', value: 'low' },
-    { label: '🟡 Medium Priority', value: 'medium' },
-    { label: '🔴 High Priority', value: 'high' },
+    { label: '🟢 ' + (t ? t('tasks.priority_low') : 'Low') + ' Priority', value: 'low' },
+    { label: '🟡 ' + (t ? t('tasks.priority_medium') : 'Medium') + ' Priority', value: 'medium' },
+    { label: '🔴 ' + (t ? t('tasks.priority_high') : 'High') + ' Priority', value: 'high' },
   ];
 
   const modalStatusOptions: DropdownOption[] = [
-    { label: 'Pending', value: 'pending' },
-    { label: 'Completed', value: 'completed' },
+    { label: t ? t('calendar_events.pending') : 'Pending', value: 'pending' },
+    { label: t ? t('calendar_events.completed') : 'Completed', value: 'completed' },
   ];
 
   // Reset filters
@@ -122,30 +122,29 @@ export const CalendarTasksPage: React.FC = () => {
   // Handle delete task
   const handleDeleteTask = async (taskId: string) => {
     const confirmed = await requestConfirm({
-      title: 'Delete Calendar Event',
-      message: 'Are you sure you want to delete this calendar event? This action cannot be undone.',
+      title: t('calendar_events.delete_title'),
+      message: t('calendar_events.delete_message'),
+      onConfirm: async () => {
+        try {
+          await deleteCalendarTaskMutation.mutateAsync(taskId);
+          showToast(t('calendar_events.event_deleted_success'), 'success');
+        } catch (error) {
+          console.error('Failed to delete calendar event', error);
+          showToast(t('calendar_events.failed_delete_event'), 'error');
+        }
+      },
     });
-
-    if (!confirmed) return;
-
-    try {
-      await deleteCalendarTaskMutation.mutateAsync(taskId);
-      showToast('Calendar event deleted successfully', 'success');
-    } catch (error) {
-      console.error('Failed to delete calendar event', error);
-      showToast('Failed to delete calendar event', 'error');
-    }
   };
 
   // Handle save task (create or update)
   const handleSaveTask = async () => {
     if (!taskForm.title.trim()) {
-      showToast('Please enter an event title', 'error');
+      showToast(t('calendar_events.enter_event_title'), 'error');
       return;
     }
 
     if (!taskForm.dueDate) {
-      showToast('Please select a due date', 'error');
+      showToast(t('calendar_events.select_due_date'), 'error');
       return;
     }
 
@@ -188,13 +187,13 @@ export const CalendarTasksPage: React.FC = () => {
       // Show success toast after modal closes and data refreshes
       setTimeout(() => {
         showToast(
-          editingTask ? 'Calendar event updated successfully' : 'Calendar event created successfully',
+          editingTask ? t('calendar_events.event_updated_success') : t('calendar_events.event_created_success'),
           'success'
         );
       }, 100);
     } catch (error) {
       console.error('Failed to save calendar event', error);
-      showToast('Failed to save calendar event', 'error');
+      showToast(t('calendar_events.failed_save_event'), 'error');
     }
   };
 
@@ -209,10 +208,10 @@ export const CalendarTasksPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-200 via-cyan-200 to-blue-300 bg-clip-text text-transparent">
-                Calendar Events
+                {t('calendar_events.title')}
               </h1>
               <p className="text-sm text-slate-400">
-                {totalTasks} total • {pendingTasks} pending • {completedTasks} completed
+                {t('calendar_events.total_pending_completed').replace('{total}', totalTasks.toString()).replace('{pending}', pendingTasks.toString()).replace('{completed}', completedTasks.toString())}
               </p>
             </div>
           </div>
@@ -222,7 +221,7 @@ export const CalendarTasksPage: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all"
           >
             <Plus className="w-5 h-5" />
-            New Event
+            {t('calendar_events.new_event')}
           </button>
         </div>
 
@@ -233,7 +232,7 @@ export const CalendarTasksPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Search events..."
+              placeholder={t('calendar_events.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-black/40 border border-blue-500/20 rounded-xl text-white placeholder-slate-500 outline-none focus:border-blue-400/50 focus:ring-2 focus:ring-blue-500/10 transition-all"
@@ -244,7 +243,7 @@ export const CalendarTasksPage: React.FC = () => {
           <div className="relative">
             <input
               type="date"
-              placeholder="From date"
+              placeholder={t('calendar_events.from_date')}
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="w-full px-4 py-2 bg-black/40 border border-blue-500/20 rounded-xl text-white outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
@@ -255,7 +254,7 @@ export const CalendarTasksPage: React.FC = () => {
           <div className="relative">
             <input
               type="date"
-              placeholder="To date"
+              placeholder={t('calendar_events.to_date')}
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="w-full px-4 py-2 bg-black/40 border border-blue-500/20 rounded-xl text-white outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
@@ -267,7 +266,7 @@ export const CalendarTasksPage: React.FC = () => {
             value={priority}
             options={priorityOptions}
             onChange={(value) => setPriority(value as any)}
-            placeholder="All Priorities"
+            placeholder={t('calendar_events.all_priorities')}
             icon={Filter}
           />
 
@@ -276,7 +275,7 @@ export const CalendarTasksPage: React.FC = () => {
             value={status}
             options={statusOptions}
             onChange={(value) => setStatus(value as any)}
-            placeholder="All Status"
+            placeholder={t('calendar_events.all_status')}
             icon={Clock}
           />
         </div>
@@ -287,7 +286,7 @@ export const CalendarTasksPage: React.FC = () => {
             onClick={handleResetFilters}
             className="mt-3 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-slate-400 hover:text-white transition-all flex items-center gap-2"
           >
-            <X className="w-4 h-4" /> Clear Filters
+            <X className="w-4 h-4" /> {t('calendar_events.clear_filters')}
           </button>
         )}
       </div>
@@ -301,8 +300,8 @@ export const CalendarTasksPage: React.FC = () => {
         ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500">
             <Calendar className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-lg">No calendar events found</p>
-            <p className="text-sm">Try adjusting your filters</p>
+            <p className="text-lg">{t('calendar_events.no_events_found')}</p>
+            <p className="text-sm">{t('calendar_events.try_adjusting_filters')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
@@ -323,7 +322,7 @@ export const CalendarTasksPage: React.FC = () => {
                     <span className={`text-xs font-bold uppercase tracking-widest ${
                       task.status === 'completed' ? 'text-green-400' : 'text-blue-400'
                     }`}>
-                      {task.status === 'completed' ? 'Completed Event' : 'Calendar Event'}
+                      {task.status === 'completed' ? t('calendar_events.completed_event') : t('calendar_events.calendar_event')}
                     </span>
                   </div>
                   <span
@@ -335,15 +334,17 @@ export const CalendarTasksPage: React.FC = () => {
                         : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                     }`}
                   >
-                    {task.priority}
+                    {task.priority === 'high' ? t('calendar_events.high_priority') : 
+                     task.priority === 'medium' ? t('calendar_events.medium_priority') : 
+                     t('calendar_events.low_priority')}
                   </span>
                 </div>
                 <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm flex-1 flex flex-col relative">
                   {task.bot && (
                     <span
-                      className="absolute top-4 -right-5 inline-block text-[9px] px-2 py-0.5 font-bold  tracking-wider pointer-events-none"
+                      className={`absolute top-4 ${t('app.dir') === 'rtl' ? '-left-5' : '-right-5'} inline-block text-[9px] px-2 py-0.5 font-bold  tracking-wider pointer-events-none`}
                       style={{
-                        transform: 'rotate(40deg)',
+                        transform: `rotate(${t('app.dir') === 'rtl' ? '-50deg' : '40deg'})`,
                         color: '#9333ea',
                         border: '1.5px solid #9333ea',
                         borderRadius: '4px',
@@ -394,14 +395,14 @@ export const CalendarTasksPage: React.FC = () => {
                       {task.googleEventId && (
                         <div className="flex items-center gap-2 text-blue-400">
                           <CheckCircle2 className="w-4 h-4" />
-                          Synced with Google
+                          {t('calendar_events.synced_with_google')}
                         </div>
                       )}
                     </div>
                     {task.description && (
                       <div className="text-sm text-slate-400 mt-2 border-t border-white/5 pt-3 leading-relaxed">
                         <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider block mb-1">
-                          Description
+                          {t('calendar_events.description')}
                         </span>
                         {task.description}
                       </div>
@@ -422,14 +423,14 @@ export const CalendarTasksPage: React.FC = () => {
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-400/20 rounded-xl text-blue-300 text-sm font-medium transition-all"
                     >
                       <Edit3 className="w-4 h-4" />
-                      Edit
+                      {t('calendar_events.edit')}
                     </button>
                     <button
                       onClick={() => handleDeleteTask(task.id)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-400/20 rounded-xl text-red-300 text-sm font-medium transition-all"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Delete
+                      {t('calendar_events.delete')}
                     </button>
                   </div>
                 </div>
@@ -446,7 +447,7 @@ export const CalendarTasksPage: React.FC = () => {
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1 || isLoading}
               className="p-2 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 text-blue-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Previous page"
+              title={t('calendar_events.previous_page')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -495,7 +496,7 @@ export const CalendarTasksPage: React.FC = () => {
               onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages || isLoading}
               className="p-2 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 text-blue-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Next page"
+              title={t('calendar_events.next_page')}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -509,7 +510,7 @@ export const CalendarTasksPage: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-blue-500/30 rounded-3xl p-8 max-w-2xl w-full shadow-2xl shadow-blue-500/20 animate-[modalPopup_0.3s_ease-out]">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-200 via-cyan-200 to-blue-300 bg-clip-text text-transparent">
-                {editingTask ? 'Edit Calendar Event' : 'Create Calendar Event'}
+                {editingTask ? t('calendar_events.edit_event') : t('calendar_events.create_event')}
               </h2>
               <button
                 onClick={() => {
@@ -527,13 +528,13 @@ export const CalendarTasksPage: React.FC = () => {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                  Event Title
+                  {t('calendar_events.event_title')}
                 </label>
                 <input
                   type="text"
                   value={taskForm.title}
                   onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  placeholder="Enter event title"
+                  placeholder={t('calendar_events.event_title_placeholder')}
                   className="w-full px-4 py-3 bg-black/40 border border-blue-500/20 rounded-xl text-white placeholder-slate-500 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
                 />
               </div>
@@ -542,12 +543,12 @@ export const CalendarTasksPage: React.FC = () => {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-                  Description
+                  {t('calendar_events.event_description')}
                 </label>
                 <textarea
                   value={taskForm.description}
                   onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                  placeholder="Enter event description"
+                  placeholder={t('calendar_events.event_description_placeholder')}
                   rows={3}
                   className="w-full px-4 py-3 bg-black/40 border border-blue-500/20 rounded-xl text-white placeholder-slate-500 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-500/10 transition-all resize-none"
                 />
@@ -559,7 +560,7 @@ export const CalendarTasksPage: React.FC = () => {
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                    Due Date & Time
+                    {t('calendar_events.due_date_time')}
                   </label>
                   <input
                     type="datetime-local"
@@ -574,7 +575,7 @@ export const CalendarTasksPage: React.FC = () => {
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                    Priority
+                    {t('calendar_events.priority')}
                   </label>
                   <Dropdown
                     value={taskForm.priority}
@@ -585,7 +586,7 @@ export const CalendarTasksPage: React.FC = () => {
                         priority: value as 'low' | 'medium' | 'high',
                       })
                     }
-                    placeholder="Select Priority"
+                    placeholder={t('calendar_events.select_priority')}
                     icon={Filter}
                   />
                 </div>
@@ -595,7 +596,7 @@ export const CalendarTasksPage: React.FC = () => {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-blue-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                  Status
+                  {t('calendar_events.status')}
                 </label>
                 <Dropdown
                   value={taskForm.status}
@@ -606,7 +607,7 @@ export const CalendarTasksPage: React.FC = () => {
                       status: value as 'pending' | 'completed',
                     })
                   }
-                  placeholder="Select Status"
+                  placeholder={t('calendar_events.select_status')}
                   icon={CheckCircle2}
                 />
               </div>
@@ -620,7 +621,7 @@ export const CalendarTasksPage: React.FC = () => {
                   }}
                   className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-300 font-medium transition-all"
                 >
-                  Cancel
+                  {t('calendar_events.cancel')}
                 </button>
                 <button
                   onClick={handleSaveTask}
@@ -630,7 +631,7 @@ export const CalendarTasksPage: React.FC = () => {
                   {(updateCalendarTaskMutation.isPending || createCalendarTaskMutation.isPending) && (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   )}
-                  {(updateCalendarTaskMutation.isPending || createCalendarTaskMutation.isPending) ? 'Saving...' : (editingTask ? 'Save Changes' : 'Create Event')}
+                  {(updateCalendarTaskMutation.isPending || createCalendarTaskMutation.isPending) ? t('calendar_events.saving') : (editingTask ? t('calendar_events.save_changes') : t('calendar_events.create_event_button'))}
                 </button>
               </div>
             </div>

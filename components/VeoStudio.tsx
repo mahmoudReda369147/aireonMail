@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Download, Sparkles, Loader2, FileSignature, Mail, Upload } from 'lucide-react';
 import { generateDocument, generateResume, generateCoverLetter } from '../services/geminiService';
 import { useToast } from '../components/common/Toast';
+import { useAppContext } from '../contexts/AppContext';
 import html2pdf from 'html2pdf.js';
 import { uploadPdf } from '../apis/services';
 
@@ -9,6 +10,7 @@ type DocumentType = 'document' | 'resume' | 'coverletter';
 
 export const VeoStudio: React.FC = () => {
   const { showToast } = useToast();
+  const { t } = useAppContext();
   const [activeTab, setActiveTab] = useState<DocumentType>('document');
   const [prompt, setPrompt] = useState('');
   const [generatedHtml, setGeneratedHtml] = useState('');
@@ -19,7 +21,7 @@ export const VeoStudio: React.FC = () => {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      showToast('Please enter a prompt to generate your document', 'error');
+      showToast(t('veo_studio.please_enter_prompt'), 'error');
       return;
     }
 
@@ -39,11 +41,11 @@ export const VeoStudio: React.FC = () => {
       }
 
       setGeneratedHtml(html);
-      showToast('Document generated successfully!', 'success');
+      showToast(t('veo_studio.document_generated_success'), 'success');
 
       // Upload PDF to backend
       setIsUploading(true);
-      showToast('Converting and uploading PDF...', 'info');
+      showToast(t('veo_studio.converting_uploading_pdf'), 'info');
 
       const response = await uploadPdf({ html });
       console.log('Uploaded PDF URL:', response.url);
@@ -51,11 +53,11 @@ export const VeoStudio: React.FC = () => {
       setUploadedPdfUrl(response.url);
       setIsUploading(false);
 
-      showToast('PDF uploaded successfully!', 'success');
+      showToast(t('veo_studio.pdf_uploaded_success'), 'success');
 
     } catch (error) {
       console.error('Failed to generate document:', error);
-      showToast('Failed to generate document. Please try again.', 'error');
+      showToast(t('veo_studio.failed_generate_document'), 'error');
       setIsUploading(false);
     } finally {
       setIsGenerating(false);
@@ -64,12 +66,12 @@ export const VeoStudio: React.FC = () => {
 
   const handleDownloadPdf = async () => {
     if (!generatedHtml) {
-      showToast('Please generate a document first', 'error');
+      showToast(t('veo_studio.please_generate_document_first'), 'error');
       return;
     }
 
     try {
-      showToast('Preparing PDF download...', 'info');
+      showToast(t('veo_studio.preparing_pdf_download'), 'info');
 
       // Create temporary container
       const tempDiv = document.createElement('div');
@@ -92,21 +94,21 @@ export const VeoStudio: React.FC = () => {
       await html2pdf().set(opt).from(tempDiv).save();
 
       document.body.removeChild(tempDiv);
-      showToast('PDF downloaded successfully!', 'success');
+      showToast(t('veo_studio.pdf_downloaded_success'), 'success');
     } catch (error) {
       console.error('Failed to download PDF:', error);
-      showToast('Failed to download PDF', 'error');
+      showToast(t('veo_studio.failed_download_pdf'), 'error');
     }
   };
 
   const getPlaceholder = () => {
     switch (activeTab) {
       case 'document':
-        return 'Example: Create a professional business proposal for a web development project worth $50,000. Include executive summary, project scope, timeline, and pricing...';
+        return t('veo_studio.document_placeholder');
       case 'resume':
-        return 'Example: Create a resume for a Senior Full Stack Developer with 5 years of experience in React, Node.js, TypeScript, AWS, and Docker. Include 3 previous positions at tech companies...';
+        return t('veo_studio.resume_placeholder');
       case 'coverletter':
-        return 'Example: Create a cover letter for a Software Engineer position at Google. Highlight my 4 years of experience in distributed systems and my passion for building scalable applications...';
+        return t('veo_studio.cover_letter_placeholder');
       default:
         return '';
     }
@@ -128,11 +130,11 @@ export const VeoStudio: React.FC = () => {
   const getTabLabel = (tab: DocumentType) => {
     switch (tab) {
       case 'document':
-        return 'Document';
+        return t('veo_studio.document');
       case 'resume':
-        return 'Resume/CV';
+        return t('veo_studio.resume_cv');
       case 'coverletter':
-        return 'Cover Letter';
+        return t('veo_studio.cover_letter');
       default:
         return '';
     }
@@ -150,10 +152,10 @@ export const VeoStudio: React.FC = () => {
               <div className="p-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-white">Document Studio</h1>
+              <h1 className="text-2xl font-bold text-white">{t('veo_studio.title')}</h1>
             </div>
           </div>
-          <p className="text-sm text-slate-400">Create professional documents with AI-powered generation</p>
+          <p className="text-sm text-slate-400">{t('veo_studio.subtitle')}</p>
         </div>
       </div>
 
@@ -197,8 +199,8 @@ export const VeoStudio: React.FC = () => {
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-lg">{getTabLabel(activeTab)} Prompt</h3>
-                  <p className="text-xs text-slate-400">Describe what you want to create</p>
+                  <h3 className="font-bold text-white text-lg">{getTabLabel(activeTab)} {t('veo_studio.prompt_label')}</h3>
+                  <p className="text-xs text-slate-400">{t('veo_studio.describe_what_to_create')}</p>
                 </div>
               </div>
 
@@ -206,7 +208,7 @@ export const VeoStudio: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                    Description
+                    {t('veo_studio.description')}
                   </label>
                   <textarea
                     value={prompt}
@@ -227,23 +229,22 @@ export const VeoStudio: React.FC = () => {
                   {isGenerating ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Generating...
+                      {t('veo_studio.generating')}
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      Generate {getTabLabel(activeTab)}
+                      {t('veo_studio.generate_document')}
                     </>
                   )}
                 </button>
-
                 <button
                   onClick={handleDownloadPdf}
                   disabled={!generatedHtml}
                   className="w-full py-3 px-4 bg-surface hover:bg-surface/80 disabled:bg-surface/50 disabled:cursor-not-allowed border border-glass-border text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
                 >
                   <Download className="w-4 h-4" />
-                  Download PDF
+                  {t('veo_studio.download_pdf')}
                 </button>
               </div>
             </div>
@@ -255,7 +256,7 @@ export const VeoStudio: React.FC = () => {
               <div className="bg-surface/50 px-6 py-4 border-b border-glass-border">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <FileText className="w-5 h-5 text-purple-400" />
-                  PDF Preview
+                  {t('veo_studio.pdf_preview')}
                 </h3>
               </div>
 
@@ -265,17 +266,17 @@ export const VeoStudio: React.FC = () => {
                     <Loader2 className="w-12 h-12 animate-spin text-purple-400 mb-4" />
                     <h3 className="text-lg font-bold text-slate-400 mb-2">
                       {isGenerating
-                        ? `Generating your ${getTabLabel(activeTab).toLowerCase()}...`
-                        : 'Converting and uploading PDF...'}
+                        ? t('veo_studio.generating_document')
+                        : t('veo_studio.converting_uploading')}
                     </h3>
-                    <p className="text-slate-500 text-sm">This may take a few moments</p>
+                    <p className="text-slate-500 text-sm">{t('veo_studio.may_take_moments')}</p>
                   </div>
                 ) : uploadedPdfUrl ? (
                   <div className="w-full h-full flex flex-col">
                     <div className="bg-surface/50 px-4 py-3 border-b border-glass-border flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs text-slate-400">
                         <Upload className="w-4 h-4 text-green-400" />
-                        <span className="font-medium">Uploaded to cloud storage</span>
+                        <span className="font-medium">{t('veo_studio.uploaded_cloud_storage')}</span>
                       </div>
                       <a
                         href={uploadedPdfUrl}
@@ -283,7 +284,7 @@ export const VeoStudio: React.FC = () => {
                         rel="noopener noreferrer"
                         className="text-xs text-purple-400 hover:text-purple-300 font-medium underline"
                       >
-                        Open in new tab
+                        {t('veo_studio.open_new_tab')}
                       </a>
                     </div>
                     <embed
@@ -298,17 +299,17 @@ export const VeoStudio: React.FC = () => {
                     <div className="w-24 h-24 bg-surface/50 rounded-full flex items-center justify-center mb-6 border-2 border-glass-border">
                       <FileText className="w-12 h-12 text-slate-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-400 mb-2">No Document Yet</h3>
-                    <p className="text-slate-500 text-sm text-center max-w-md mb-8">Enter a prompt and click "Generate" to create your PDF document</p>
+                    <h3 className="text-xl font-bold text-slate-400 mb-2">{t('veo_studio.no_document_yet')}</h3>
+                    <p className="text-slate-500 text-sm text-center max-w-md mb-8">{t('veo_studio.enter_prompt_generate')}</p>
 
                     <div className="grid grid-cols-2 gap-4 max-w-md w-full">
                       <div className="bg-surface/50 rounded-xl p-4 border border-glass-border">
                         <Sparkles className="w-6 h-6 text-purple-400 mb-2" />
-                        <p className="text-xs text-slate-400 font-medium">AI-Powered</p>
+                        <p className="text-xs text-slate-400 font-medium">{t('veo_studio.ai_powered')}</p>
                       </div>
                       <div className="bg-surface/50 rounded-xl p-4 border border-glass-border">
                         <FileText className="w-6 h-6 text-pink-400 mb-2" />
-                        <p className="text-xs text-slate-400 font-medium">PDF Output</p>
+                        <p className="text-xs text-slate-400 font-medium">{t('veo_studio.pdf_output')}</p>
                       </div>
                     </div>
                   </div>

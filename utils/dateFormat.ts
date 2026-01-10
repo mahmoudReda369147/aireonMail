@@ -1,5 +1,5 @@
 // WhatsApp-style date formatting function
-export const formatWhatsAppDate = (dateString: string): string => {
+export const formatWhatsAppDate = (dateString: string, t?: (key: string) => string): string => {
   const date = new Date(dateString);
   const now = new Date();
   const diffTime = now.getTime() - date.getTime();
@@ -7,17 +7,20 @@ export const formatWhatsAppDate = (dateString: string): string => {
 
   // Today
   if (diffDays === 0) {
-    return `Today at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+    const todayText = t ? t('date.today') : 'Today at';
+    return `${todayText} ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
   }
 
   // Yesterday
   if (diffDays === 1) {
-    return `Yesterday at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+    const yesterdayText = t ? t('date.yesterday') : 'Yesterday at';
+    return `${yesterdayText} ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
   }
 
   // This week (within last 7 days) - show day name
   if (diffDays < 7) {
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayKey = `date.${date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()}`;
+    const dayName = t ? t(dayKey) : date.toLocaleDateString('en-US', { weekday: 'long' });
     return `${dayName} at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
   }
 

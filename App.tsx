@@ -109,7 +109,7 @@ const AppRoutes = () => {
             </Routes>
           </Layout>
         ) : (
-          <Navigate to="/login" replace />
+          <Navigate to="login" replace />
         )
       } />
     </Routes>

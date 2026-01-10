@@ -13,10 +13,9 @@ import { BotData, BotLogData } from '../apis/services';
 import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
 
 export const ConversationAutomationPage: React.FC = () => {
-  const { emails, threadAutomations, updateThreadAutomation } = useAppContext();
+  const { emails, threadAutomations, updateThreadAutomation, showToast, t } = useAppContext();
   const { id, botId } = useParams<{id: string; botId?: string}>();
   const navigate = useNavigate();
-  const { showToast } = useToast();
   const {
     bgColor: templateBgColor,
     setBgColor: setTemplateBgColor,
@@ -141,7 +140,7 @@ export const ConversationAutomationPage: React.FC = () => {
   const handleToggleActive = () => {
     if(!id || !config) return;
     updateThreadAutomation(id, { active: !config.active });
-    showToast(config.active ? "Automation Paused" : "Automation Activated", config.active ? "info" : "success");
+    showToast(config.active ? t('conversation_automation.automation_paused') : t('conversation_automation.automation_activated'), config.active ? "info" : "success");
   };
 
   // Handle scroll for infinite loading
@@ -210,7 +209,7 @@ export const ConversationAutomationPage: React.FC = () => {
         },
         customPrompt: bot.userPrompet || ''
       });
-      showToast(`Bot "${bot.botName}" applied to this conversation`, "success");
+      showToast(t('conversation_automation.auto_reply_applied').replace('{botName}', bot.botName), "success");
     } else {
       // No thread selected, just show bot settings
       navigate(`/thread-automation/bot/${bot.id}`);
@@ -240,17 +239,17 @@ export const ConversationAutomationPage: React.FC = () => {
     const trimmedEmail = emailInput.trim();
 
     if (!trimmedEmail) {
-      showToast('Please enter an email address', 'error');
+      showToast(t('conversation_automation.please_enter_email'), 'error');
       return;
     }
 
     if (!validateEmail(trimmedEmail)) {
-      showToast('Please enter a valid email address', 'error');
+      showToast(t('conversation_automation.please_enter_valid_email'), 'error');
       return;
     }
 
     if (emailList.includes(trimmedEmail)) {
-      showToast('Email already added', 'error');
+      showToast(t('conversation_automation.email_already_added'), 'error');
       return;
     }
 
@@ -322,10 +321,10 @@ export const ConversationAutomationPage: React.FC = () => {
       });
       setEmailList(response.data.emails || []);
 
-      showToast('Bot settings saved successfully', 'success');
+      showToast(t('conversation_automation.bot_settings_saved'), 'success');
     } catch (error) {
       console.error('Failed to save bot settings:', error);
-      showToast('Failed to save bot settings', 'error');
+      showToast(t('conversation_automation.failed_save_bot_settings'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -339,7 +338,7 @@ export const ConversationAutomationPage: React.FC = () => {
         ...editableBotSettings,
         templete: template.body || '',
       });
-      showToast(`Template "${template.name}" loaded`, 'success');
+      showToast(t('conversation_automation.template_loaded').replace('{templateName}', template.name), 'success');
     }
   };
 
@@ -348,7 +347,7 @@ export const ConversationAutomationPage: React.FC = () => {
     const template = templatesData?.data?.find(t => t.id === templateId);
     if (template && config) {
       updateConfig('customPrompt', template.body || '');
-      showToast(`Template "${template.name}" loaded`, 'success');
+      showToast(t('conversation_automation.template_loaded').replace('{templateName}', template.name), 'success');
     }
   };
 
@@ -359,10 +358,10 @@ export const ConversationAutomationPage: React.FC = () => {
          <div className="p-5 flex justify-between items-center border-b border-glass-border/50">
              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                  <Bot className="w-5 h-5 text-fuchsia-500" />
-                 Thread Bots
+                 {t('conversation_automation.thread_bots')}
              </h2>
              <span className="text-xs bg-fuchsia-500/10 text-fuchsia-400 px-2 py-1 rounded-full border border-fuchsia-500/20">
-               {allBots.length} Bots
+               {t('conversation_automation.bots_count').replace('{count}', allBots.length.toString())}
              </span>
          </div>
 
@@ -374,7 +373,7 @@ export const ConversationAutomationPage: React.FC = () => {
                  onClick={() => navigate('/thread-automation/create-bot')}
                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white shadow-lg shadow-fuchsia-500/20"
                >
-                 + Create New Bot
+                 {t('conversation_automation.create_new_bot')}
                </button>
                {/* <button
                  onClick={() => setActiveTab('conversations')}
@@ -399,12 +398,12 @@ export const ConversationAutomationPage: React.FC = () => {
                {isLoadingBots ? (
                <div className="flex flex-col items-center justify-center py-10 gap-3">
                  <Loader2 className="w-8 h-8 text-fuchsia-500 animate-spin" />
-                 <span className="text-sm text-slate-400">Loading bots...</span>
+                 <span className="text-sm text-slate-400">{t('conversation_automation.loading_bots')}</span>
                </div>
              ) : allBots.length === 0 ? (
                <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-500">
                  <Bot className="w-12 h-12 opacity-20" />
-                 <span className="text-sm">No bots available</span>
+                 <span className="text-sm">{t('conversation_automation.no_bots_available')}</span>
                </div>
              ) : (
                <>
@@ -471,14 +470,14 @@ export const ConversationAutomationPage: React.FC = () => {
                  {isFetchingNextPage && (
                    <div className="flex items-center justify-center py-4">
                      <Loader2 className="w-5 h-5 text-fuchsia-500 animate-spin" />
-                     <span className="ml-2 text-sm text-slate-400">Loading more...</span>
+                     <span className="ml-2 text-sm text-slate-400">{t('conversation_automation.loading_more')}</span>
                    </div>
                  )}
 
                  {/* End of list indicator */}
                  {!hasNextPage && allBots.length > 0 && (
                    <div className="text-center py-4 text-xs text-slate-500">
-                     All bots loaded
+                     {t('conversation_automation.all_bots_loaded')}
                    </div>
                  )}
                </>
@@ -490,7 +489,7 @@ export const ConversationAutomationPage: React.FC = () => {
                {threads.length === 0 ? (
                  <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-500">
                    <MessageSquare className="w-12 h-12 opacity-20" />
-                   <span className="text-sm">No conversations</span>
+                   <span className="text-sm">{t('conversation_automation.no_conversations')}</span>
                  </div>
                ) : (
                  threads.map(email => (
@@ -521,7 +520,7 @@ export const ConversationAutomationPage: React.FC = () => {
                <div className="p-6 border-b border-glass-border bg-glass backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                      <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
-                        <span>Bot Settings</span>
+                        <span>{t('conversation_automation.bot_settings')}</span>
                         <ChevronRight className="w-3 h-3" />
                         <span>{selectedBot.emails}</span>
                      </div>
@@ -530,8 +529,8 @@ export const ConversationAutomationPage: React.FC = () => {
 
                   <div className="flex items-center gap-4 bg-surface/50 p-2 rounded-2xl border border-glass-border">
                      <div className={`flex flex-col px-2 ${editableBotSettings.isactive ? 'text-green-400' : 'text-slate-500'}`}>
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{editableBotSettings.isactive ? 'Active' : 'Paused'}</span>
-                        <span className="text-xs font-medium">Auto-pilot mode</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{editableBotSettings.isactive ? t('conversation_automation.active') : t('conversation_automation.paused')}</span>
+                        <span className="text-xs font-medium">{t('conversation_automation.auto_pilot_mode')}</span>
                      </div>
                      <button
                         onClick={(e) => {
@@ -563,15 +562,15 @@ export const ConversationAutomationPage: React.FC = () => {
                                  <Bot className="w-5 h-5" />
                               </div>
                               <div>
-                                 <h3 className="font-bold text-white text-lg">Bot Information</h3>
-                                 <p className="text-xs text-slate-400">Basic configuration</p>
+                                 <h3 className="font-bold text-white text-lg">{t('conversation_automation.bot_information')}</h3>
+                                 <p className="text-xs text-slate-400">{t('conversation_automation.basic_configuration')}</p>
                               </div>
                            </div>
 
                            <div className="space-y-4">
                               <div>
                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                                    Bot Name *
+                                    {t('conversation_automation.bot_name')}
                                  </label>
                                  <input
                                     type="text"
@@ -583,7 +582,7 @@ export const ConversationAutomationPage: React.FC = () => {
 
                               <div>
                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                                    Email Addresses *
+                                    {t('conversation_automation.email_addresses')}
                                  </label>
                                  <div className="flex gap-2">
                                     <input
@@ -596,7 +595,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                              handleAddEmail();
                                           }
                                        }}
-                                       placeholder="e.g., support@company.com"
+                                       placeholder={t('conversation_automation.email_placeholder')}
                                        className="flex-1 px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
                                     />
                                     <button
@@ -605,7 +604,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                        className="px-4 py-3 bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all shadow-lg shadow-fuchsia-500/20 flex items-center gap-2"
                                     >
                                        <Plus className="w-4 h-4" />
-                                       Add
+                                       {t('conversation_automation.add')}
                                     </button>
                                  </div>
 
@@ -622,7 +621,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                                 type="button"
                                                 onClick={() => handleRemoveEmail(email)}
                                                 className="p-1 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                                                title="Remove email"
+                                                title={t('conversation_automation.remove_email')}
                                              >
                                                 <X className="w-4 h-4" />
                                              </button>
@@ -643,8 +642,8 @@ export const ConversationAutomationPage: React.FC = () => {
                                     <MessageSquare className="w-5 h-5" />
                                  </div>
                                  <div>
-                                    <h3 className="font-bold text-white text-lg">Auto Reply</h3>
-                                    <p className="text-xs text-slate-400">Handle incoming messages automatically</p>
+                                    <h3 className="font-bold text-white text-lg">{t('conversation_automation.auto_reply')}</h3>
+                                    <p className="text-xs text-slate-400">{t('conversation_automation.handle_incoming_messages')}</p>
                                  </div>
                               </div>
                               <label className="relative inline-flex items-center cursor-pointer">
@@ -656,7 +655,7 @@ export const ConversationAutomationPage: React.FC = () => {
                            {/* User Prompt Textarea */}
                            <div className="space-y-2 mt-4">
                               <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
-                                 Custom Instructions
+                                 {t('conversation_automation.custom_instructions')}
                               </label>
                               <textarea
                                  value={editableBotSettings.userPrompet}
@@ -694,30 +693,30 @@ export const ConversationAutomationPage: React.FC = () => {
                                  <Zap className="w-5 h-5" />
                               </div>
                               <div>
-                                 <h3 className="font-bold text-white text-lg">Smart Actions</h3>
-                                 <p className="text-xs text-slate-400">Process content on arrival</p>
+                                 <h3 className="font-bold text-white text-lg">{t('conversation_automation.smart_actions')}</h3>
+                                 <p className="text-xs text-slate-400">{t('conversation_automation.process_content_arrival')}</p>
                               </div>
                            </div>
 
                            <div className="space-y-3">
                               <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                                  <div>
-                                    <div className="text-sm font-bold text-slate-200">Summarize Message</div>
-                                    <div className="text-xs text-slate-500">Create a 1-sentence summary</div>
+                                    <div className="text-sm font-bold text-slate-200">{t('conversation_automation.summarize_message')}</div>
+                                    <div className="text-xs text-slate-500">{t('conversation_automation.create_summary')}</div>
                                  </div>
                                  <input type="checkbox" checked={editableBotSettings.isautoSummarize} onChange={e => updateBotSetting('isautoSummarize', e.target.checked)} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                               </div>
                               <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                                  <div>
-                                    <div className="text-sm font-bold text-slate-200">Extract Tasks</div>
-                                    <div className="text-xs text-slate-500">Find action items and deadlines</div>
+                                    <div className="text-sm font-bold text-slate-200">{t('conversation_automation.extract_tasks')}</div>
+                                    <div className="text-xs text-slate-500">{t('conversation_automation.find_action_items')}</div>
                                  </div>
                                  <input type="checkbox" checked={editableBotSettings.isautoExtractTaskes} onChange={e => updateBotSetting('isautoExtractTaskes', e.target.checked)} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                               </div>
                               <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                                  <div>
-                                    <div className="text-sm font-bold text-slate-200">Extract Meetings</div>
-                                    <div className="text-xs text-slate-500">Detect meeting requests and times</div>
+                                    <div className="text-sm font-bold text-slate-200">{t('conversation_automation.extract_meetings')}</div>
+                                    <div className="text-xs text-slate-500">{t('conversation_automation.detect_meeting_requests')}</div>
                                  </div>
                                  <input type="checkbox" checked={editableBotSettings.isautoExtractMettengs} onChange={e => updateBotSetting('isautoExtractMettengs', e.target.checked)} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                               </div>
@@ -734,7 +733,7 @@ export const ConversationAutomationPage: React.FC = () => {
                            <div className="flex items-center justify-between mb-4">
                               <div className="flex items-center gap-2">
                                  <Wand2 className="w-5 h-5 text-purple-400" />
-                                 <h3 className="font-bold text-white">Email Template</h3>
+                                 <h3 className="font-bold text-white">{t('conversation_automation.email_template')}</h3>
                               </div>
                               <Dropdown
                                  value=""
@@ -753,7 +752,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                  onChange={html => updateBotSetting('templete', html)}
                                  onBackgroundColorChange={setTemplateBgColor}
                                  initialBackgroundColor={templateBgColor}
-                                 placeholder="Create your email template with HTML formatting..."
+                                 placeholder={t('conversation_automation.template_placeholder')}
                                  className="bg-black/20"
                               />
                            </div>
@@ -887,11 +886,11 @@ export const ConversationAutomationPage: React.FC = () => {
                                  emails: selectedBot.emails || [],
                               });
                               setEmailList(selectedBot.emails || []);
-                              showToast('Changes discarded', 'info');
+                              showToast(t('conversation_automation.changes_discarded'), 'info');
                            }}
                            className="px-6"
                         >
-                           Cancel
+                           {t('conversation_automation.cancel')}
                         </Button>
                         <Button
                            onClick={handleSaveBotSettings}
@@ -901,10 +900,10 @@ export const ConversationAutomationPage: React.FC = () => {
                            {isSaving ? (
                               <>
                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                 Saving...
+                                 {t('conversation_automation.saving')}
                               </>
                            ) : (
-                              'Save Changes'
+                              `${t('conversation_automation.save_changes')}`
                            )}
                         </Button>
                      </div>
@@ -917,14 +916,14 @@ export const ConversationAutomationPage: React.FC = () => {
                 <div className="p-6 border-b border-glass-border bg-glass backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
                         <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
-                            <span>Automation</span>
+                            <span>{t('conversation_automation.automation')}</span>
                             <ChevronRight className="w-3 h-3" />
                             <span>{selectedThread.sender}</span>
                         </div>
                         <h1 className="text-2xl font-bold text-white truncate max-w-md">{selectedThread.subject}</h1>
                         {selectedBot && (
                           <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-slate-500">Active Bot:</span>
+                            <span className="text-xs text-slate-500">{t('conversation_automation.active_bot')}</span>
                             <div className="flex items-center gap-1 px-2 py-1 bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-lg">
                               <Bot className="w-3 h-3 text-fuchsia-400" />
                               <span className="text-xs font-medium text-fuchsia-300">{selectedBot.botName}</span>
@@ -935,8 +934,8 @@ export const ConversationAutomationPage: React.FC = () => {
                     
                     <div className="flex items-center gap-4 bg-surface/50 p-2 rounded-2xl border border-glass-border">
                         <div className={`flex flex-col px-2 ${config.active ? 'text-green-400' : 'text-slate-500'}`}>
-                            <span className="text-[10px] font-bold uppercase tracking-widest">{config.active ? 'Active' : 'Paused'}</span>
-                            <span className="text-xs font-medium">Auto-pilot mode</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{config.active ? t('conversation_automation.active') : t('conversation_automation.paused')}</span>
+                            <span className="text-xs font-medium">{t('conversation_automation.auto_pilot_mode')}</span>
                         </div>
                         <button 
                             onClick={handleToggleActive}
@@ -965,8 +964,8 @@ export const ConversationAutomationPage: React.FC = () => {
                                             <MessageSquare className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-white text-lg">Auto Reply</h3>
-                                            <p className="text-xs text-slate-400">Handle incoming messages automatically</p>
+                                            <h3 className="font-bold text-white text-lg">{t('conversation_automation.auto_reply')}</h3>
+                                            <p className="text-xs text-slate-400">{t('conversation_automation.handle_incoming_messages')}</p>
                                         </div>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
@@ -978,9 +977,9 @@ export const ConversationAutomationPage: React.FC = () => {
                                 {config.autoReply.enabled && (
                                     <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                         <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reply Tone</label>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">{t('conversation_automation.reply_tone')}</label>
                                             <div className="flex flex-wrap gap-2">
-                                                {['Professional', 'Friendly', 'Concise', 'Detailed'].map(tone => (
+                                                {[t('create_bot.professional'), t('create_bot.friendly'), t('create_bot.concise'), t('create_bot.detailed')].map(tone => (
                                                     <button 
                                                         key={tone}
                                                         onClick={() => updateConfig('autoReply.tone', tone)}
@@ -1006,17 +1005,17 @@ export const ConversationAutomationPage: React.FC = () => {
                                         <Zap className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-white text-lg">Smart Actions</h3>
-                                        <p className="text-xs text-slate-400">Process content on arrival</p>
+                                        <h3 className="font-bold text-white text-lg">{t('conversation_automation.smart_actions')}</h3>
+                                        <p className="text-xs text-slate-400">{t('conversation_automation.process_content_arrival')}</p>
                                     </div>
                                 </div>
                                 
                                 <div className="space-y-3">
                                     {[
-                                        { key: 'summarize', label: 'Summarize Message', desc: 'Create a 1-sentence summary' },
-                                        { key: 'extractTasks', label: 'Extract Tasks', desc: 'Find action items and deadlines' },
-                                        { key: 'autoLabel', label: 'Auto-Label', desc: 'Tag based on content analysis' },
-                                        { key: 'translate', label: 'Translate', desc: 'Translate to English automatically' }
+                                        { key: 'summarize', label: t('conversation_automation.summarize_message'), desc: t('conversation_automation.create_summary') },
+                                        { key: 'extractTasks', label: t('conversation_automation.extract_tasks'), desc: t('conversation_automation.find_action_items') },
+                                        { key: 'autoLabel', label: t('conversation_automation.auto_label'), desc: t('conversation_automation.tag_based_content_analysis') },
+                                        { key: 'translate', label: t('conversation_automation.translate'), desc: t('conversation_automation.translate_to_english') }
                                     ].map((item) => (
                                         <div key={item.key} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                                             <div>
@@ -1039,7 +1038,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                 <div className="flex items-center justify-between mb-4">
                                      <div className="flex items-center gap-2">
                                          <Wand2 className="w-5 h-5 text-purple-400" />
-                                         <h3 className="font-bold text-white">Custom Instructions</h3>
+                                         <h3 className="font-bold text-white">{t('conversation_automation.custom_instructions')}</h3>
                                      </div>
                                      <Dropdown
                                         value=""
@@ -1048,7 +1047,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                            label: template.name,
                                            value: template.id
                                         })) || []}
-                                        placeholder={isLoadingTemplates ? 'Loading...' : 'Load Template'}
+                                        placeholder={isLoadingTemplates ? t('conversation_automation.loading') : t('conversation_automation.load_template')}
                                         className="w-48"
                                      />
                                 </div>
@@ -1057,7 +1056,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                         value={config.customPrompt}
                                         onChange={html => updateConfig('customPrompt', html)}
                                         onBackgroundColorChange={setPromptBgColor}
-                                        placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                                        placeholder={t('conversation_automation.custom_instructions_placeholder')}
                                         className="bg-black/20"
                                     />
                                 </div>
@@ -1068,7 +1067,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                 <div className="flex items-center justify-between mb-6">
                                     <div className="flex items-center gap-2">
                                         <Activity className="w-5 h-5 text-slate-400" />
-                                        <h3 className="font-bold text-white">Activity Log</h3>
+                                        <h3 className="font-bold text-white">{t('conversation_automation.activity_log')}</h3>
                                     </div>
                                     <button
                                         onClick={() => refetchLogs()}
@@ -1087,12 +1086,12 @@ export const ConversationAutomationPage: React.FC = () => {
                                     {isLoadingLogs && allLogs.length === 0 ? (
                                         <div className="text-center text-slate-500 py-10">
                                             <Loader2 className="w-10 h-10 mx-auto mb-3 opacity-20 animate-spin" />
-                                            <p>Loading activity logs...</p>
+                                            <p>{t('conversation_automation.loading_activity_logs')}</p>
                                         </div>
                                     ) : allLogs.length === 0 ? (
                                         <div className="text-center text-slate-500 py-10">
                                             <Clock className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                            <p>No activity recorded yet</p>
+                                            <p>{t('conversation_automation.no_activity_recorded')}</p>
                                         </div>
                                     ) : (
                                         <>
@@ -1105,7 +1104,7 @@ export const ConversationAutomationPage: React.FC = () => {
                                                 const diffInDays = Math.floor(diffInMs / 86400000);
 
                                                 let timeAgo = '';
-                                                if (diffInMins < 1) timeAgo = 'Just now';
+                                                if (diffInMins < 1) timeAgo = t('conversation_automation.just_now');
                                                 else if (diffInMins < 60) timeAgo = `${diffInMins}m ago`;
                                                 else if (diffInHours < 24) timeAgo = `${diffInHours}h ago`;
                                                 else if (diffInDays < 7) timeAgo = `${diffInDays}d ago`;
@@ -1179,11 +1178,11 @@ export const ConversationAutomationPage: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-white/5"></div>
                     <Bot className="w-10 h-10 opacity-50" />
                 </div>
-                <p className="font-medium text-xl text-slate-300">Select a thread to automate</p>
-                <p className="text-sm opacity-50 mt-2">Configure AI rules for specific conversations.</p>
+                <p className="font-medium text-xl text-slate-300">{t('conversation_automation.select_thread_to_automate')}</p>
+                <p className="text-sm opacity-50 mt-2">{t('conversation_automation.configure_ai_rules')}</p>
             </div>
          )}
       </div>
     </>
   );
-};
+}

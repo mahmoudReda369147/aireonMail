@@ -5,13 +5,15 @@ import { MessageSquare, Send, Loader2, ArrowLeft, MoreVertical, Search, Phone, V
 import { GmailThread, ThreadMessage } from '../apis/services';
 import { RichEditor } from '../components/common/RichEditor';
 import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
+import { useAppContext } from '../contexts/AppContext';
 
 // Thread list item component
 const ThreadListItem: React.FC<{
   thread: GmailThread;
   isSelected: boolean;
   onClick: () => void;
-}> = ({ thread, isSelected, onClick }) => {
+  t?: (key: string) => string;
+}> = ({ thread, isSelected, onClick, t }) => {
   // Extract sender name
   const extractName = (fromField: string): string => {
     const match = fromField.match(/^(.+?)\s*<.*>$/);
@@ -80,7 +82,7 @@ const ThreadListItem: React.FC<{
           </p>
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500 truncate flex-1">
-              {lastMessage?.snippet || 'No preview'}
+              {lastMessage?.snippet || (t ? t('chats.no_preview') : 'No preview')}
             </p>
            { thread.unreadNum > 0 && <span className="text-xs text-fuchsia-400 ml-2 flex-shrink-0 bg-fuchsia-500/10 px-2 py-0.5 rounded-full">
               {thread.unreadNum}
@@ -97,7 +99,8 @@ const ChatMessage: React.FC<{
   message: ThreadMessage;
   isOutgoing: boolean;
   isFullHeight: boolean;
-}> = ({ message, isOutgoing, isFullHeight }) => {
+  t?: (key: string) => string;
+}> = ({ message, isOutgoing, isFullHeight, t }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const extractName = (fromField: string): string => {
@@ -172,12 +175,12 @@ const ChatMessage: React.FC<{
               {isExpanded ? (
                 <>
                   <ChevronUp className="w-3 h-3" />
-                  Hide full message
+                  {t ? t('chats.hide_full_message') : 'Hide full message'}
                 </>
               ) : (
                 <>
                   <ChevronDown className="w-3 h-3" />
-                  Show full message
+                  {t ? t('chats.show_full_message') : 'Show full message'}
                 </>
               )}
             </button>
@@ -204,6 +207,7 @@ const ChatMessage: React.FC<{
 export const ChatsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useAppContext();
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useGmailThreads();
   const { data: threadData, isLoading: isThreadLoading } = useGmailThreadById(id);
   const sendEmailReply = useSendEmailReply();
@@ -283,10 +287,10 @@ export const ChatsPage: React.FC = () => {
               <div className="p-2 bg-gradient-to-br from-purple-500 to-fuchsia-500 rounded-lg shadow-lg shadow-fuchsia-500/20">
                 <MessageSquare className="w-5 h-5 text-white" />
               </div>
-              Messages
+              {t('chats.title')}
             </h2>
             <span className="text-xs text-slate-400 bg-white/5 px-3 py-1 rounded-full">
-              {allThreads.length} chats
+              {allThreads.length} {t('chats.chats_count')}
             </span>
           </div>
 
@@ -297,7 +301,7 @@ export const ChatsPage: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search conversations..."
+              placeholder={t('chats.search_placeholder')}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500/50 transition-all"
             />
           </div>
@@ -308,14 +312,14 @@ export const ChatsPage: React.FC = () => {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-16">
               <Loader2 className="w-8 h-8 text-fuchsia-500 animate-spin mb-3" />
-              <p className="text-sm text-slate-400">Loading conversations...</p>
+              <p className="text-sm text-slate-400">{t('chats.loading_conversations')}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center p-16">
               <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-3">
                 <MessageSquare className="w-8 h-8 text-red-500" />
               </div>
-              <p className="text-sm text-red-400">Failed to load chats</p>
+              <p className="text-sm text-red-400">{t('chats.failed_to_load')}</p>
             </div>
           ) : filteredThreads.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-16">
@@ -323,7 +327,7 @@ export const ChatsPage: React.FC = () => {
                 <MessageSquare className="w-8 h-8 text-slate-600" />
               </div>
               <p className="text-sm text-slate-500">
-                {searchQuery ? 'No chats found' : 'No conversations yet'}
+                {searchQuery ? t('chats.no_chats_found') : t('chats.no_conversations_yet')}
               </p>
             </div>
           ) : (
@@ -334,6 +338,7 @@ export const ChatsPage: React.FC = () => {
                   thread={thread}
                   isSelected={thread.id === id}
                   onClick={() => navigate(`/chats/${thread.id}`)}
+                  t={t}
                 />
               ))}
               {hasNextPage && !searchQuery && (
@@ -343,13 +348,13 @@ export const ChatsPage: React.FC = () => {
                     disabled={isFetchingNextPage}
                     className="w-full py-3 px-4 bg-gradient-to-r from-purple-500/10 to-fuchsia-500/10 hover:from-purple-500/20 hover:to-fuchsia-500/20 text-fuchsia-400 rounded-xl transition-all duration-200 disabled:opacity-50 font-medium text-sm border border-fuchsia-500/20"
                   >
-                    {isFetchingNextPage ? (
+                        {isFetchingNextPage ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Loading...
+                        {t('chats.loading')}
                       </span>
                     ) : (
-                      'Load More Conversations'
+                      t('chats.load_more')
                     )}
                   </button>
                 </div>
@@ -403,7 +408,7 @@ export const ChatsPage: React.FC = () => {
                         ? 'bg-gradient-to-br from-purple-500 to-fuchsia-500 shadow-lg shadow-fuchsia-500/30'
                         : 'hover:bg-white/5'
                     }`}
-                    title={isFullHeight ? 'Restore height' : 'Expand to full height'}
+                    title={isFullHeight ? t('chats.restore_height') : t('chats.expand_full_height')}
                   >
                     <Maximize2 className={`w-5 h-5 transition-colors ${
                       isFullHeight
@@ -444,6 +449,7 @@ export const ChatsPage: React.FC = () => {
                       message={message}
                       isOutgoing={isOutgoingMessage(message)}
                       isFullHeight={isFullHeight}
+                      t={t}
                     />
                   ))}
                   <div ref={messagesEndRef} />
@@ -460,7 +466,7 @@ export const ChatsPage: React.FC = () => {
                       value={messageHtml}
                       onChange={setMessageHtml}
                       onBackgroundColorChange={setMessageBgColor}
-                      placeholder="Type your message..."
+                      placeholder={t('chats.type_message')}
                       className="w-full"
                     />
                   </div>
@@ -472,12 +478,12 @@ export const ChatsPage: React.FC = () => {
                     {sendEmailReply.isPending ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        <span className="sm:hidden text-sm font-medium">Sending...</span>
+                        <span className="sm:hidden text-sm font-medium">{t('chats.sending')}</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-5 h-5" />
-                        <span className="sm:hidden text-sm font-medium">Send Message</span>
+                        <span className="sm:hidden text-sm font-medium">{t('chats.send_message')}</span>
                       </>
                     )}
                   </button>
@@ -487,14 +493,14 @@ export const ChatsPage: React.FC = () => {
                 {sendEmailReply.isSuccess && (
                   <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <p className="text-sm text-green-400 font-medium">Message sent successfully!</p>
+                    <p className="text-sm text-green-400 font-medium">{t('chats.message_sent_success')}</p>
                   </div>
                 )}
 
                 {sendEmailReply.isError && (
                   <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <p className="text-sm text-red-400 font-medium">Failed to send message. Please try again.</p>
+                    <p className="text-sm text-red-400 font-medium">{t('chats.message_send_failed')}</p>
                   </div>
                 )}
               </div>
@@ -505,9 +511,9 @@ export const ChatsPage: React.FC = () => {
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 flex items-center justify-center mb-6 animate-pulse">
               <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 text-fuchsia-500/50" />
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-slate-300 mb-2 text-center">Select a conversation</h3>
+            <h3 className="text-lg sm:text-xl font-semibold text-slate-300 mb-2 text-center">{t('chats.select_conversation')}</h3>
             <p className="text-xs sm:text-sm text-slate-500 text-center max-w-xs sm:max-w-sm px-4">
-              Choose a chat from the sidebar to view the full conversation and send messages
+              {t('chats.choose_chat_sidebar')}
             </p>
           </div>
         )}

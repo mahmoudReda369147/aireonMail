@@ -6,10 +6,12 @@ import { Bot, Zap, MessageSquare, Wand2, Loader2, ArrowLeft, Plus, X } from 'luc
 import { useToast } from '../components/common/Toast';
 import { useCreateBot } from '../apis/hooks';
 import { useEditorBackgroundColor } from '../hooks/useEditorBackgroundColor';
+import { useAppContext } from '../contexts/AppContext';
 
 export const CreateBotPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useAppContext();
   const createBotMutation = useCreateBot();
   const { setBgColor: setTemplateBgColor, wrapWithFullHTML } = useEditorBackgroundColor();
 
@@ -45,17 +47,17 @@ export const CreateBotPage: React.FC = () => {
     const trimmedEmail = emailInput.trim();
 
     if (!trimmedEmail) {
-      showToast('Please enter an email address', 'error');
+      showToast(t('create_bot.please_enter_email'), 'error');
       return;
     }
 
     if (!validateEmail(trimmedEmail)) {
-      showToast('Please enter a valid email address', 'error');
+      showToast(t('create_bot.please_enter_valid_email'), 'error');
       return;
     }
 
     if (emailList.includes(trimmedEmail)) {
-      showToast('Email already added', 'error');
+      showToast(t('create_bot.email_already_added'), 'error');
       return;
     }
 
@@ -71,7 +73,7 @@ export const CreateBotPage: React.FC = () => {
   // Handle create bot
   const handleCreateBot = async () => {
     if (!newBotData.botName || emailList.length === 0) {
-      showToast('Please fill in bot name and add at least one email', 'error');
+      showToast(t('create_bot.fill_bot_name_and_email'), 'error');
       return;
     }
 
@@ -82,13 +84,13 @@ export const CreateBotPage: React.FC = () => {
         emails: emailList, // Send as array of strings
         templete: wrapWithFullHTML(newBotData.templete),
       });
-      showToast('Bot created successfully', 'success');
+      showToast(t('create_bot.bot_created_success'), 'success');
 
       // Navigate to the newly created bot
       navigate(`/thread-automation/bot/${response.data.id}`);
     } catch (error) {
       console.error('Failed to create bot:', error);
-      showToast('Failed to create bot', 'error');
+      showToast(t('create_bot.failed_create_bot'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -108,10 +110,10 @@ export const CreateBotPage: React.FC = () => {
             </button>
             <div className="flex items-center gap-2">
               <Bot className="w-6 h-6 text-fuchsia-500" />
-              <h1 className="text-2xl font-bold text-white">Create New Bot</h1>
+              <h1 className="text-2xl font-bold text-white">{t('create_bot.title')}</h1>
             </div>
           </div>
-          <p className="text-sm text-slate-400 ml-11">Configure your automation assistant</p>
+          <p className="text-sm text-slate-400 ml-11">{t('create_bot.subtitle')}</p>
         </div>
       </div>
 
@@ -129,28 +131,28 @@ export const CreateBotPage: React.FC = () => {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-lg">Bot Information</h3>
-                  <p className="text-xs text-slate-400">Basic configuration</p>
+                  <h3 className="font-bold text-white text-lg">{t('create_bot.bot_information')}</h3>
+                  <p className="text-xs text-slate-400">{t('create_bot.basic_configuration')}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                    Bot Name *
+                    {t('create_bot.bot_name')}
                   </label>
                   <input
                     type="text"
                     value={newBotData.botName}
                     onChange={(e) => setNewBotData({ ...newBotData, botName: e.target.value })}
-                    placeholder="e.g., Customer Support Bot"
+                    placeholder={t('create_bot.bot_name_placeholder')}
                     className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                    Email Addresses *
+                    {t('create_bot.email_addresses')}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -163,7 +165,7 @@ export const CreateBotPage: React.FC = () => {
                           handleAddEmail();
                         }
                       }}
-                      placeholder="e.g., support@company.com"
+                      placeholder={t('create_bot.email_placeholder')}
                       className="flex-1 px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors"
                     />
                     <button
@@ -172,7 +174,7 @@ export const CreateBotPage: React.FC = () => {
                       className="px-4 py-3 bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all shadow-lg shadow-fuchsia-500/20 flex items-center gap-2"
                     >
                       <Plus className="w-4 h-4" />
-                      Add
+                      {t('create_bot.add')}
                     </button>
                   </div>
 
@@ -189,7 +191,7 @@ export const CreateBotPage: React.FC = () => {
                             type="button"
                             onClick={() => handleRemoveEmail(email)}
                             className="p-1 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                            title="Remove email"
+                            title={t('create_bot.remove_email')}
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -210,8 +212,8 @@ export const CreateBotPage: React.FC = () => {
                     <MessageSquare className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white text-lg">Auto Reply</h3>
-                    <p className="text-xs text-slate-400">Handle incoming messages automatically</p>
+                    <h3 className="font-bold text-white text-lg">{t('create_bot.auto_reply')}</h3>
+                    <p className="text-xs text-slate-400">{t('create_bot.handle_incoming_messages')}</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -228,12 +230,12 @@ export const CreateBotPage: React.FC = () => {
               {/* User Prompt Textarea */}
               <div className="space-y-2 mt-4">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block">
-                  Custom Instructions
+                  {t('create_bot.custom_instructions')}
                 </label>
                 <textarea
                   value={newBotData.userPrompet}
                   onChange={(e) => setNewBotData({ ...newBotData, userPrompet: e.target.value })}
-                  placeholder="E.g. If the client asks for pricing, attach the Q4 PDF and cc the sales manager..."
+                  placeholder={t('create_bot.custom_instructions_placeholder')}
                   rows={4}
                   className="w-full px-4 py-3 bg-black/20 border border-glass-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500 transition-colors resize-none"
                 />
@@ -242,9 +244,9 @@ export const CreateBotPage: React.FC = () => {
               {newBotData.isAutoReply && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reply Tone</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">{t('create_bot.reply_tone')}</label>
                     <div className="flex flex-wrap gap-2">
-                      {['Professional', 'Friendly', 'Concise', 'Detailed'].map(tone => (
+                      {[t('create_bot.professional'), t('create_bot.friendly'), t('create_bot.concise'), t('create_bot.detailed')].map(tone => (
                         <button
                           key={tone}
                           onClick={() => setNewBotData({ ...newBotData, replayTony: tone })}
@@ -266,30 +268,30 @@ export const CreateBotPage: React.FC = () => {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-lg">Smart Actions</h3>
-                  <p className="text-xs text-slate-400">Process content on arrival</p>
+                  <h3 className="font-bold text-white text-lg">{t('create_bot.smart_actions')}</h3>
+                  <p className="text-xs text-slate-400">{t('create_bot.process_content_arrival')}</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                   <div>
-                    <div className="text-sm font-bold text-slate-200">Summarize Message</div>
-                    <div className="text-xs text-slate-500">Create a 1-sentence summary</div>
+                    <div className="text-sm font-bold text-slate-200">{t('create_bot.summarize_message')}</div>
+                    <div className="text-xs text-slate-500">{t('create_bot.create_summary')}</div>
                   </div>
                   <input type="checkbox" checked={newBotData.isautoSummarize} onChange={e => setNewBotData({ ...newBotData, isautoSummarize: e.target.checked })} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                 </div>
                 <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                   <div>
-                    <div className="text-sm font-bold text-slate-200">Extract Tasks</div>
-                    <div className="text-xs text-slate-500">Find action items and deadlines</div>
+                    <div className="text-sm font-bold text-slate-200">{t('create_bot.extract_tasks')}</div>
+                    <div className="text-xs text-slate-500">{t('create_bot.find_action_items')}</div>
                   </div>
                   <input type="checkbox" checked={newBotData.isautoExtractTaskes} onChange={e => setNewBotData({ ...newBotData, isautoExtractTaskes: e.target.checked })} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                 </div>
                 <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
                   <div>
-                    <div className="text-sm font-bold text-slate-200">Extract Meetings</div>
-                    <div className="text-xs text-slate-500">Detect meeting requests and times</div>
+                    <div className="text-sm font-bold text-slate-200">{t('create_bot.extract_meetings')}</div>
+                    <div className="text-xs text-slate-500">{t('create_bot.detect_meeting_requests')}</div>
                   </div>
                   <input type="checkbox" checked={newBotData.isautoExtractMettengs} onChange={e => setNewBotData({ ...newBotData, isautoExtractMettengs: e.target.checked })} className="w-5 h-5 accent-cyan-500 rounded cursor-pointer" />
                 </div>
@@ -305,7 +307,7 @@ export const CreateBotPage: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Wand2 className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-white">Email Template</h3>
+                  <h3 className="font-bold text-white">{t('create_bot.email_template')}</h3>
                 </div>
               </div>
               <div className="relative">
@@ -313,7 +315,7 @@ export const CreateBotPage: React.FC = () => {
                   value={newBotData.templete}
                   onChange={html => setNewBotData({ ...newBotData, templete: html })}
                   onBackgroundColorChange={setTemplateBgColor}
-                  placeholder="Create your email template with HTML formatting..."
+                  placeholder={t('create_bot.template_placeholder')}
                   className="bg-black/20"
                 />
               </div>
@@ -331,7 +333,7 @@ export const CreateBotPage: React.FC = () => {
               className="px-6"
               disabled={isSaving}
             >
-              Cancel
+              {t('create_bot.cancel')}
             </Button>
             <Button
               onClick={handleCreateBot}
@@ -341,10 +343,10 @@ export const CreateBotPage: React.FC = () => {
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {t('create_bot.creating')}
                 </>
               ) : (
-                'Create Bot'
+                `{t('create_bot.create_bot')}`
               )}
             </Button>
           </div>

@@ -139,9 +139,9 @@ export const ComposePage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full overflow-hidden relative w-full">
+    <div className="flex h-full  relative w-full lg:flex-row">
         {/* Main Compose Area */}
-        <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 flex flex-col p-6 min-w-0 overflow-y-auto custom-scrollbar lg:border-r lg:border-glass-border">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 shrink-0">
                 <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white flex items-center gap-2 transition-colors">
@@ -168,12 +168,12 @@ export const ComposePage: React.FC = () => {
                         {showTemplates && (
                             <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowTemplates(false)}></div>
-                            <div className="absolute top-full right-0 mt-2 w-72 bg-[#1A1B2E] border border-glass-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
+                            <div className="absolute top-full right-0 mt-2 w-72 bg-[#1A1B2E] border border-glass-border rounded-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 z-50">
                                 <div className="p-3 border-b border-glass-border bg-black/20 flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Template</h4>
                                     <button onClick={() => navigate('/templates')} className="text-[10px] text-fuchsia-400 hover:text-fuchsia-300 font-bold">Manage</button>
                                 </div>
-                                <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                                <div className=" overflow-y-auto custom-scrollbar">
                                     {templates.length === 0 ? (
                                         <div className="p-6 text-center text-slate-500 text-xs">
                                             <LayoutTemplate className="w-8 h-8 mx-auto mb-2 opacity-20" />
@@ -200,9 +200,10 @@ export const ComposePage: React.FC = () => {
                         )}
                     </div>
 
+                    {/* AI Toggle Button - Hidden on large screens, always visible on small screens */}
                     <button 
                         onClick={() => setShowAi(!showAi)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all duration-300 ${
+                        className={`lg:hidden flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all duration-300 ${
                             showAi 
                             ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.4)]' 
                             : 'bg-glass border-glass-border text-slate-300 hover:text-white hover:bg-white/5'
@@ -214,7 +215,7 @@ export const ComposePage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-glass border border-glass-border rounded-[2rem] flex-1 flex flex-col backdrop-blur-xl shadow-2xl relative overflow-hidden min-h-[500px]">
+            <div className="bg-glass border border-glass-border rounded-[2rem] flex-1 flex flex-col backdrop-blur-xl shadow-2xl relative ">
                 
                 <div className="p-8 pb-0 space-y-5">
                     <div className="relative group">
@@ -237,7 +238,7 @@ export const ComposePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col min-h-0 relative p-8 pt-6">
+                <div className="flex-1 flex flex-col  relative p-8 pt-6">
                     <RichEditor
                         value={body}
                         onChange={setBody}
@@ -310,7 +311,7 @@ export const ComposePage: React.FC = () => {
         </div>
 
         {/* AI Sidebar */}
-        <div className={`w-[400px] bg-[#0F1020]/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-500 absolute right-0 top-0 bottom-0 z-40 ${showAi ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`w-[400px] bg-[#0F1020]/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-500 lg:relative lg:translate-x-0 absolute right-0 top-0 bottom-0 z-40 ${showAi ? 'translate-x-0' : 'translate-x-full'}`}>
             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/20">
                 <div>
                     <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400 flex items-center gap-2">
